@@ -1,6 +1,5 @@
 -- Hybrid Auto Checkpoint + Spawn GUI
--- Bisa deteksi checkpoint custom (CheckpointId) + fallback spawn point default
--- Tambahan: auto teleport ke checkpoint yang belum
+-- Deteksi otomatis semua spawn/checkpoint (nama bebas, tidak tergantung nama file)
 -- By Zarukabot
 
 local Players = game:GetService("Players")
@@ -46,28 +45,56 @@ local lastSpawnCFrame = nil
 local checkpoints = {}
 local visited = {}
 
--- Kumpulkan semua checkpoint
-for _, part in ipairs(workspace:GetChildren()) do
-	if part:IsA("BasePart") and part:GetAttribute("CheckpointId") then
-		table.insert(checkpoints, part)
-		-- tandai jika sudah tersentuh
-		part.Touched:Connect(function(hit)
-			local char = hit.Parent
-			if char and Players:GetPlayerFromCharacter(char) == LocalPlayer then
-				lastCheckpoint = part
-				visited[part] = true
-				print("Checkpoint "..part:GetAttribute("CheckpointId").." tersentuh!")
+-- Fungsi deteksi checkpoint otomatis
+local function detectCheckpoints()
+	for _, part in ipairs(workspace:GetDescendants()) do
+		if part:IsA("BasePart") then
+			local nameLower = string.lower(part.Name)
+			if part:GetAttribute("CheckpointId")
+				or part:IsA("SpawnLocation")
+				or string.find(nameLower, "checkpoint")
+				or string.find(nameLower, "spawn")
+			then
+				if not table.find(checkpoints, part) then
+					table.insert(checkpoints, part)
+
+					-- Listener saat tersentuh manual
+					part.Touched:Connect(function(hit)
+						local char = hit.Parent
+						if char and Players:GetPlayerFromCharacter(char) == LocalPlayer then
+							lastCheckpoint = part
+							visited[part] = true
+							print("✅ Checkpoint tersentuh:", part.Name)
+						end
+					end)
+				end
 			end
-		end)
+		end
 	end
 end
 
--- urutkan sesuai CheckpointId
-table.sort(checkpoints, function(a, b)
-	return (a:GetAttribute("CheckpointId") or 0) < (b:GetAttribute("CheckpointId") or 0)
+-- Jalankan deteksi awal
+detectCheckpoints()
+
+-- Kalau ada part baru muncul di Workspace
+workspace.DescendantAdded:Connect(function(obj)
+	if obj:IsA("BasePart") then
+		task.wait(0.2) -- biar atribut sempat kebaca
+		detectCheckpoints()
+	end
 end)
 
--- Fungsi teleport balik
+-- Cari checkpoint berikutnya yang belum
+local function getNextCheckpoint()
+	for _, cp in ipairs(checkpoints) do
+		if not visited[cp] then
+			return cp
+		end
+	end
+	return nil
+end
+
+-- Fungsi teleport balik (respawn ke terakhir)
 local function teleportBack()
 	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 	local hrp = char:WaitForChild("HumanoidRootPart")
@@ -78,27 +105,17 @@ local function teleportBack()
 	end
 end
 
--- Fungsi cari checkpoint berikutnya yang belum
-local function getNextCheckpoint()
-	for _, cp in ipairs(checkpoints) do
-		if not visited[cp] then
-			return cp
-		end
-	end
-	return nil
-end
-
--- Fungsi teleport ke checkpoint yang belum
+-- Teleport ke checkpoint berikutnya
 local function teleportToNextCheckpoint()
 	local cp = getNextCheckpoint()
 	if cp then
 		local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 		local hrp = char:WaitForChild("HumanoidRootPart")
 		hrp.CFrame = cp.CFrame + Vector3.new(0, 3, 0)
-		print("➡️ Auto Teleport ke Checkpoint "..cp:GetAttribute("CheckpointId"))
 		visited[cp] = true
+		print("➡️ Auto teleport ke:", cp.Name)
 	else
-		print("✅ Semua checkpoint sudah dikunjungi")
+		print("🏁 Semua checkpoint sudah selesai!")
 	end
 end
 
@@ -113,7 +130,7 @@ if LocalPlayer.Character then
 	onCharacterAdded(LocalPlayer.Character)
 end
 
--- Toggle button
+-- Toggle Auto Button
 autoBtn.MouseButton1Click:Connect(function()
 	autoEnabled = not autoEnabled
 	autoBtn.Text = autoEnabled and "Auto: ON" or "Auto: OFF"
@@ -129,7 +146,6 @@ autoBtn.MouseButton1Click:Connect(function()
 						task.wait(0.5)
 						teleportBack()
 					else
-						-- cek checkpoint yang belum, auto teleport
 						teleportToNextCheckpoint()
 					end
 				end
@@ -139,4 +155,4 @@ autoBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
-print("Hybrid Auto Checkpoint/Spawn GUI Loaded ✅")
+print("✅ Auto Checkpoint/Spawn GUI Loaded")
