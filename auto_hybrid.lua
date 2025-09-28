@@ -1,5 +1,6 @@
 -- Hybrid Auto Checkpoint + Spawn GUI
 -- Bisa deteksi checkpoint custom (CheckpointId) + fallback spawn point default
+-- Tambahan: auto teleport ke checkpoint yang belum
 -- By Zarukabot
 
 local Players = game:GetService("Players")
@@ -42,30 +43,62 @@ autoBtn.Parent = frame
 local autoEnabled = false
 local lastCheckpoint = nil
 local lastSpawnCFrame = nil
+local checkpoints = {}
+local visited = {}
 
--- Fungsi teleport
-local function teleportBack()
-	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-	local hrp = char:WaitForChild("HumanoidRootPart")
-	if lastCheckpoint then
-		-- Teleport ke checkpoint terakhir
-		hrp.CFrame = CFrame.new(lastCheckpoint.Position + Vector3.new(0, 3, 0))
-	elseif lastSpawnCFrame then
-		-- Teleport ke spawn terakhir
-		hrp.CFrame = lastSpawnCFrame
-	end
-end
-
--- Deteksi checkpoint custom
+-- Kumpulkan semua checkpoint
 for _, part in ipairs(workspace:GetChildren()) do
 	if part:IsA("BasePart") and part:GetAttribute("CheckpointId") then
+		table.insert(checkpoints, part)
+		-- tandai jika sudah tersentuh
 		part.Touched:Connect(function(hit)
 			local char = hit.Parent
 			if char and Players:GetPlayerFromCharacter(char) == LocalPlayer then
 				lastCheckpoint = part
+				visited[part] = true
 				print("Checkpoint "..part:GetAttribute("CheckpointId").." tersentuh!")
 			end
 		end)
+	end
+end
+
+-- urutkan sesuai CheckpointId
+table.sort(checkpoints, function(a, b)
+	return (a:GetAttribute("CheckpointId") or 0) < (b:GetAttribute("CheckpointId") or 0)
+end)
+
+-- Fungsi teleport balik
+local function teleportBack()
+	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	local hrp = char:WaitForChild("HumanoidRootPart")
+	if lastCheckpoint then
+		hrp.CFrame = CFrame.new(lastCheckpoint.Position + Vector3.new(0, 3, 0))
+	elseif lastSpawnCFrame then
+		hrp.CFrame = lastSpawnCFrame
+	end
+end
+
+-- Fungsi cari checkpoint berikutnya yang belum
+local function getNextCheckpoint()
+	for _, cp in ipairs(checkpoints) do
+		if not visited[cp] then
+			return cp
+		end
+	end
+	return nil
+end
+
+-- Fungsi teleport ke checkpoint yang belum
+local function teleportToNextCheckpoint()
+	local cp = getNextCheckpoint()
+	if cp then
+		local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+		local hrp = char:WaitForChild("HumanoidRootPart")
+		hrp.CFrame = cp.CFrame + Vector3.new(0, 3, 0)
+		print("➡️ Auto Teleport ke Checkpoint "..cp:GetAttribute("CheckpointId"))
+		visited[cp] = true
+	else
+		print("✅ Semua checkpoint sudah dikunjungi")
 	end
 end
 
@@ -95,9 +128,12 @@ autoBtn.MouseButton1Click:Connect(function()
 						LocalPlayer.CharacterAdded:Wait()
 						task.wait(0.5)
 						teleportBack()
+					else
+						-- cek checkpoint yang belum, auto teleport
+						teleportToNextCheckpoint()
 					end
 				end
-				task.wait(1)
+				task.wait(2)
 			end
 		end)
 	end
