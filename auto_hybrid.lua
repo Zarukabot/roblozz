@@ -1,15 +1,17 @@
--- 🚀 Full Admin Mount Visual + Admin Features GUI
+-- LocalScript: AdminMountFull
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
--- Tunggu karakter
-local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local autoEnabled = false
+local checkpoints = {}
+local touchedCheckpoints = {}
 
 -- =========================
--- 1. Admin Mount
+-- 1. Admin Mount Visual
 -- =========================
-local function createAdminMount()
+local function createAdminMount(char)
     if char:FindFirstChild("AdminMount") then return end
     local mount = Instance.new("Part")
     mount.Name = "AdminMount"
@@ -27,14 +29,13 @@ local function createAdminMount()
     weld.Parent = mount
 end
 
--- =========================
--- 2. Aura Particle
--- =========================
-local function createAdminAura()
-    if char.HumanoidRootPart:FindFirstChild("AdminAura") then return end
+local function createAdminAura(char)
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    if hrp:FindFirstChild("AdminAura") then return end
+
     local attachment = Instance.new("Attachment")
     attachment.Name = "AdminAura"
-    attachment.Parent = char.HumanoidRootPart
+    attachment.Parent = hrp
 
     local particle = Instance.new("ParticleEmitter")
     particle.Color = ColorSequence.new(Color3.fromRGB(128,0,255), Color3.fromRGB(255,0,255))
@@ -47,11 +48,11 @@ local function createAdminAura()
 end
 
 -- =========================
--- 3. Title di Atas Kepala
+-- 2. Admin Title
 -- =========================
-local function createAdminTitle()
+local function createAdminTitle(char)
     local head = char:WaitForChild("Head")
-    if head:FindFirstChild("AdminTitle") then return end
+    if head:FindFirstChild("AdminTitle") then head.AdminTitle:Destroy() end
 
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "AdminTitle"
@@ -73,11 +74,12 @@ local function createAdminTitle()
 end
 
 -- =========================
--- 4. Admin Features GUI
+-- 3. Admin GUI
 -- =========================
 local function createAdminGUI()
-    if char:FindFirstChild("PlayerGui") == nil then return end
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local PlayerGui = char:WaitForChild("PlayerGui")
+
     if PlayerGui:FindFirstChild("AdminGUI") then PlayerGui.AdminGUI:Destroy() end
 
     local ScreenGui = Instance.new("ScreenGui")
@@ -85,8 +87,8 @@ local function createAdminGUI()
     ScreenGui.Parent = PlayerGui
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0,220,0,180)
-    MainFrame.Position = UDim2.new(0.5,-110,0.5,-90)
+    MainFrame.Size = UDim2.new(0,220,0,230)
+    MainFrame.Position = UDim2.new(0.5,-110,0.5,-115)
     MainFrame.BackgroundColor3 = Color3.fromRGB(25,25,35)
     MainFrame.BorderSizePixel = 0
     MainFrame.Parent = ScreenGui
@@ -108,7 +110,6 @@ local function createAdminGUI()
     tcorner.CornerRadius = UDim.new(0,15)
     tcorner.Parent = title
 
-    -- Example Feature Buttons
     local function createButton(text,posY,callback)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(0,200,0,30)
@@ -122,41 +123,130 @@ local function createAdminGUI()
         local corner = Instance.new("UICorner")
         corner.CornerRadius = UDim.new(0,8)
         corner.Parent = btn
-
         btn.MouseButton1Click:Connect(callback)
     end
 
-    -- Contoh tombol: Fly / Speed
+    -- Tombol Fly
+    local flying = false
     createButton("Fly",50,function()
-        print("🛸 Fly feature activated (visual/local only)")
+        flying = not flying
+        print("🛸 Fly: "..tostring(flying))
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if flying and hum and hrp then
+            hum.PlatformStand = true
+            spawn(function()
+                while flying and hrp.Parent do
+                    hrp.CFrame = hrp.CFrame + hrp.CFrame.LookVector*1
+                    wait(0.03)
+                end
+                if hum then hum.PlatformStand = false end
+            end)
+        end
     end)
+
+    -- Tombol Speed
     createButton("Speed Boost",90,function()
-        print("⚡ Speed Boost activated (visual/local only)")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed = hum.WalkSpeed + 16 end
     end)
+
+    -- Tombol Teleport Spawn
     createButton("Teleport to Spawn",130,function()
         local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CFrame = CFrame.new(Vector3.new(0,5,0))
+        if hrp then hrp.CFrame = CFrame.new(Vector3.new(0,5,0)) end
+    end)
+
+    -- Tombol Teleport ke Checkpoint
+    createButton("Teleport to Next Checkpoint",170,function()
+        if #checkpoints == 0 then return end
+        for _, cp in ipairs(checkpoints) do
+            if not touchedCheckpoints[cp] then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then hrp.CFrame = CFrame.new(cp.Position + Vector3.new(0,5,0)) end
+                touchedCheckpoints[cp] = true
+                break
+            end
         end
-        print("📍 Teleported to Spawn (local)")
     end)
 end
 
 -- =========================
--- 5. Aktifkan Semua
+-- 4. Checkpoint Auto Teleport
 -- =========================
-local function enableAdminMountFull()
-    createAdminMount()
-    createAdminAura()
-    createAdminTitle()
-    createAdminGUI()
-    print("✅ Admin Mount Visual + Features activated!")
+local function setupTouch(part)
+    if part:GetAttribute("TouchSetup") then return end
+    part:SetAttribute("TouchSetup", true)
+    part.Touched:Connect(function(hit)
+        if hit.Parent and Players:GetPlayerFromCharacter(hit.Parent) == LocalPlayer then
+            touchedCheckpoints[part] = true
+        end
+    end)
 end
 
--- Jalankan
-enableAdminMountFull()
+local function findCheckpoints()
+    checkpoints = {}
+    touchedCheckpoints = {}
 
--- Pastikan title muncul saat respawn
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and (obj.Name:lower():find("checkpoint") or obj:GetAttribute("CheckpointId")) then
+            table.insert(checkpoints,obj)
+            setupTouch(obj)
+        end
+    end
+end
+
+local function teleportTo(part)
+    local char = LocalPlayer.Character
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp and part then
+        hrp.CFrame = CFrame.new(part.Position + Vector3.new(0,5,0))
+        touchedCheckpoints[part] = true
+    end
+end
+
+local function startAutoTeleport()
+    if #checkpoints == 0 then return end
+    autoEnabled = true
+    spawn(function()
+        while autoEnabled do
+            local nextCp
+            for _, cp in ipairs(checkpoints) do
+                if not touchedCheckpoints[cp] then
+                    nextCp = cp
+                    break
+                end
+            end
+            if not nextCp then break end
+            teleportTo(nextCp)
+            wait(2)
+        end
+        autoEnabled = false
+    end)
+end
+
+-- =========================
+-- 5. RemoteEvent untuk title
+-- =========================
+local AdminTitleEvent = ReplicatedStorage:WaitForChild("AdminTitleEvent")
+AdminTitleEvent.OnClientEvent:Connect(function(targetPlayer)
+    if targetPlayer.Character then
+        createAdminTitle(targetPlayer.Character)
+    end
+end)
+
+-- =========================
+-- 6. Aktifkan semua untuk LocalPlayer
+-- =========================
+local function enableAdminMountFull()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    createAdminMount(char)
+    createAdminAura(char)
+    createAdminGUI()
+    findCheckpoints()
+end
+
+enableAdminMountFull()
 LocalPlayer.CharacterAdded:Connect(function(newChar)
     char = newChar
     wait(1)
