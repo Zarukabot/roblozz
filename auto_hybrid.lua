@@ -1,9 +1,24 @@
--- LocalScript: AdminMountFull
+-- =========================
+-- Admin Mount + Modern GUI + Auto Teleport
+-- =========================
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 
+-- RemoteEvent untuk title
+local AdminTitleEvent = ReplicatedStorage:FindFirstChild("AdminTitleEvent")
+if not AdminTitleEvent then
+    AdminTitleEvent = Instance.new("RemoteEvent")
+    AdminTitleEvent.Name = "AdminTitleEvent"
+    AdminTitleEvent.Parent = ReplicatedStorage
+end
+
+-- =========================
+-- Variables
+-- =========================
 local autoEnabled = false
 local checkpoints = {}
 local touchedCheckpoints = {}
@@ -21,7 +36,7 @@ local function createAdminMount(char)
     mount.CanCollide = false
     mount.Material = Enum.Material.Neon
     mount.BrickColor = BrickColor.new("Bright purple")
-    mount.Parent = workspace
+    mount.Parent = Workspace
 
     local weld = Instance.new("WeldConstraint")
     weld.Part0 = char.HumanoidRootPart
@@ -74,7 +89,7 @@ local function createAdminTitle(char)
 end
 
 -- =========================
--- 3. Admin GUI
+-- 3. Modern Admin GUI
 -- =========================
 local function createAdminGUI()
     local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -87,9 +102,10 @@ local function createAdminGUI()
     ScreenGui.Parent = PlayerGui
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0,220,0,230)
-    MainFrame.Position = UDim2.new(0.5,-110,0.5,-115)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(25,25,35)
+    MainFrame.Size = UDim2.new(0,250,0,280)
+    MainFrame.Position = UDim2.new(0.5,-125,0.5,-140)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(20,20,25)
+    MainFrame.BackgroundTransparency = 0.1
     MainFrame.BorderSizePixel = 0
     MainFrame.Parent = ScreenGui
 
@@ -97,10 +113,12 @@ local function createAdminGUI()
     corner.CornerRadius = UDim.new(0,15)
     corner.Parent = MainFrame
 
+    -- Title
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1,0,0,35)
     title.Position = UDim2.new(0,0,0,0)
     title.BackgroundColor3 = Color3.fromRGB(40,40,55)
+    title.BackgroundTransparency = 0.1
     title.Text = "👑 Admin Features"
     title.TextColor3 = Color3.fromRGB(255,255,255)
     title.Font = Enum.Font.GothamBold
@@ -110,27 +128,35 @@ local function createAdminGUI()
     tcorner.CornerRadius = UDim.new(0,15)
     tcorner.Parent = title
 
+    -- Function to create modern button
     local function createButton(text,posY,callback)
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0,200,0,30)
-        btn.Position = UDim2.new(0,10,0,posY)
-        btn.BackgroundColor3 = Color3.fromRGB(100,50,255)
+        btn.Size = UDim2.new(0,220,0,30)
+        btn.Position = UDim2.new(0,0,0,posY)
+        btn.BackgroundColor3 = Color3.fromRGB(120,50,255)
         btn.TextColor3 = Color3.fromRGB(255,255,255)
         btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 14
+        btn.TextSize = 15
         btn.Text = text
         btn.Parent = MainFrame
         local corner = Instance.new("UICorner")
         corner.CornerRadius = UDim.new(0,8)
         corner.Parent = btn
         btn.MouseButton1Click:Connect(callback)
+
+        -- Hover effect
+        btn.MouseEnter:Connect(function()
+            btn.BackgroundColor3 = Color3.fromRGB(180,80,255)
+        end)
+        btn.MouseLeave:Connect(function()
+            btn.BackgroundColor3 = Color3.fromRGB(120,50,255)
+        end)
     end
 
-    -- Tombol Fly
+    -- Fly
     local flying = false
     createButton("Fly",50,function()
         flying = not flying
-        print("🛸 Fly: "..tostring(flying))
         local hum = char:FindFirstChildOfClass("Humanoid")
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if flying and hum and hrp then
@@ -145,19 +171,19 @@ local function createAdminGUI()
         end
     end)
 
-    -- Tombol Speed
+    -- Speed Boost
     createButton("Speed Boost",90,function()
         local hum = char:FindFirstChildOfClass("Humanoid")
         if hum then hum.WalkSpeed = hum.WalkSpeed + 16 end
     end)
 
-    -- Tombol Teleport Spawn
+    -- Teleport Spawn
     createButton("Teleport to Spawn",130,function()
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if hrp then hrp.CFrame = CFrame.new(Vector3.new(0,5,0)) end
     end)
 
-    -- Tombol Teleport ke Checkpoint
+    -- Teleport Next Checkpoint
     createButton("Teleport to Next Checkpoint",170,function()
         if #checkpoints == 0 then return end
         for _, cp in ipairs(checkpoints) do
@@ -168,6 +194,49 @@ local function createAdminGUI()
                 break
             end
         end
+    end)
+
+    -- Manual Checkpoint
+    createButton("Add Checkpoint Manually",210,function()
+        print("🖱️ Click a part to add checkpoint...")
+        local mouse = LocalPlayer:GetMouse()
+        local conn
+        conn = mouse.Button1Down:Connect(function()
+            local target = mouse.Target
+            if target and target:IsA("BasePart") then
+                if not table.find(checkpoints,target) then
+                    table.insert(checkpoints,target)
+                    touchedCheckpoints[target] = false
+                    print("✅ Added manual checkpoint: "..target.Name)
+                end
+                conn:Disconnect()
+            end
+        end)
+    end)
+
+    -- Start Auto Teleport
+    createButton("Start Auto Teleport",250,function()
+        if #checkpoints == 0 then return end
+        autoEnabled = true
+        spawn(function()
+            while autoEnabled do
+                local nextCp
+                for _, cp in ipairs(checkpoints) do
+                    if not touchedCheckpoints[cp] then
+                        nextCp = cp
+                        break
+                    end
+                end
+                if not nextCp then break end
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.CFrame = CFrame.new(nextCp.Position + Vector3.new(0,5,0))
+                    touchedCheckpoints[nextCp] = true
+                end
+                wait(2)
+            end
+            autoEnabled = false
+        end)
     end)
 end
 
@@ -187,8 +256,7 @@ end
 local function findCheckpoints()
     checkpoints = {}
     touchedCheckpoints = {}
-
-    for _, obj in pairs(workspace:GetDescendants()) do
+    for _, obj in pairs(Workspace:GetDescendants()) do
         if obj:IsA("BasePart") and (obj.Name:lower():find("checkpoint") or obj:GetAttribute("CheckpointId")) then
             table.insert(checkpoints,obj)
             setupTouch(obj)
@@ -196,39 +264,9 @@ local function findCheckpoints()
     end
 end
 
-local function teleportTo(part)
-    local char = LocalPlayer.Character
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if hrp and part then
-        hrp.CFrame = CFrame.new(part.Position + Vector3.new(0,5,0))
-        touchedCheckpoints[part] = true
-    end
-end
-
-local function startAutoTeleport()
-    if #checkpoints == 0 then return end
-    autoEnabled = true
-    spawn(function()
-        while autoEnabled do
-            local nextCp
-            for _, cp in ipairs(checkpoints) do
-                if not touchedCheckpoints[cp] then
-                    nextCp = cp
-                    break
-                end
-            end
-            if not nextCp then break end
-            teleportTo(nextCp)
-            wait(2)
-        end
-        autoEnabled = false
-    end)
-end
-
 -- =========================
 -- 5. RemoteEvent untuk title
 -- =========================
-local AdminTitleEvent = ReplicatedStorage:WaitForChild("AdminTitleEvent")
 AdminTitleEvent.OnClientEvent:Connect(function(targetPlayer)
     if targetPlayer.Character then
         createAdminTitle(targetPlayer.Character)
@@ -248,7 +286,8 @@ end
 
 enableAdminMountFull()
 LocalPlayer.CharacterAdded:Connect(function(newChar)
-    char = newChar
     wait(1)
     enableAdminMountFull()
 end)
+
+print("✅ Modern Admin Mount + GUI + Auto Teleport script loaded!")
