@@ -1,4 +1,4 @@
--- Working GUI Auto Teleport - Pasti Jalan!
+-- Working GUI Auto Teleport - Auto & Manual Mode
 print("=" .. string.rep("=", 50))
 print("🚀 LOADING AUTO TELEPORT GUI...")
 print("=" .. string.rep("=", 50))
@@ -30,8 +30,8 @@ ScreenGui.Parent = PlayerGui
 -- Main Frame
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 300, 0, 200)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+MainFrame.Size = UDim2.new(0, 300, 0, 220)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -110)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -118,10 +118,26 @@ local StopCorner = Instance.new("UICorner")
 StopCorner.CornerRadius = UDim.new(0, 8)
 StopCorner.Parent = StopButton
 
+-- Mode Toggle Button
+local ModeButton = Instance.new("TextButton")
+ModeButton.Size = UDim2.new(0, 280, 0, 30)
+ModeButton.Position = UDim2.new(0, 10, 0, 120)
+ModeButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
+ModeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ModeButton.Text = "Mode: Auto"
+ModeButton.Font = Enum.Font.GothamBold
+ModeButton.TextSize = 14
+ModeButton.Parent = MainFrame
+
+local ModeCorner = Instance.new("UICorner")
+ModeCorner.CornerRadius = UDim.new(0, 8)
+ModeCorner.Parent = ModeButton
+
 print("✅ GUI created successfully!")
 
 -- === VARIABLES ===
 local autoEnabled = false
+local manualMode = false
 local checkpoints = {}
 local touchedCheckpoints = {}
 
@@ -132,13 +148,7 @@ local function updateStatus(text, color)
     StatusLabel.TextColor3 = color or Color3.fromRGB(200, 200, 200)
 end
 
-local function updateProgress()
-    local total = #checkpoints
-    local done = total - getUntouchedCount()
-    ProgressLabel.Text = "Progress: " .. done .. "/" .. total
-end
-
-function getUntouchedCount()
+local function getUntouchedCount()
     local count = 0
     for _, cp in ipairs(checkpoints) do
         if not touchedCheckpoints[cp] then
@@ -146,6 +156,12 @@ function getUntouchedCount()
         end
     end
     return count
+end
+
+local function updateProgress()
+    local total = #checkpoints
+    local done = total - getUntouchedCount()
+    ProgressLabel.Text = "Progress: " .. done .. "/" .. total
 end
 
 local function getNextUntouched()
@@ -167,52 +183,83 @@ local function setupTouch(part)
                 touchedCheckpoints[part] = true
                 print("✅ Touched: " .. part.Name)
                 updateProgress()
+                if manualMode then
+                    if not table.find(checkpoints, part) then
+                        table.insert(checkpoints, part)
+                        print("🎯 Manual checkpoint registered: " .. part.Name)
+                        updateProgress()
+                    end
+                end
             end
         end
     end)
 end
 
+-- Manual checkpoint registration
+local function registerCheckpoint(part)
+    if table.find(checkpoints, part) then return end
+    table.insert(checkpoints, part)
+    touchedCheckpoints[part] = true
+    setupTouch(part)
+    updateProgress()
+    print("✅ Manual checkpoint registered: " .. part.Name)
+end
+
+-- Find checkpoints
 local function findCheckpoints()
-    print("🔍 Finding checkpoints...")
-    updateStatus("Scanning checkpoints...", Color3.fromRGB(255, 200, 0))
+    if manualMode then
+        checkpoints = {}
+        touchedCheckpoints = {}
+        updateStatus("Manual mode: touch checkpoints to register", Color3.fromRGB(255, 200, 0))
+        print("🔍 Manual mode active. Touch checkpoints to register...")
+        return
+    end
+
+    print("🔍 Smart checkpoint detection...")
+    updateStatus("Smart scanning all parts...", Color3.fromRGB(255, 200, 0))
     
     checkpoints = {}
     touchedCheckpoints = {}
-    
+    local foundNames = {}
+
+    -- Scan workspace
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") then
             local name = obj.Name:lower()
-            
-            if name:find("checkpoint") or name:find("stage") or name:find("cp") or 
-               obj:GetAttribute("CheckpointId") then
-                
-                if not table.find(checkpoints, obj) then
-                    table.insert(checkpoints, obj)
-                    setupTouch(obj)
-                    print("✅ Found: " .. obj.Name)
+            local shouldAdd = false
+            local reason = ""
+
+            local keywords = {
+                "checkpoint", "stage", "level", "cp", "teleport", "spawn", 
+                "point", "pad", "platform", "goal", "finish", "end",
+                "save", "respawn", "warp", "portal", "gate", "door",
+                "button", "touch", "trigger", "marker", "beacon"
+            }
+
+            for _, keyword in pairs(keywords) do
+                if name:find(keyword) then
+                    shouldAdd = true
+                    reason = "keyword: " .. keyword
+                    break
                 end
+            end
+
+            if not shouldAdd and name:match("%d") then
+                shouldAdd = true
+                reason = "numbered part"
+            end
+
+            if shouldAdd and not table.find(checkpoints, obj) then
+                table.insert(checkpoints, obj)
+                setupTouch(obj)
+                table.insert(foundNames, obj.Name .. " (" .. reason .. ")")
+                print("✅ " .. obj.Name .. " (" .. reason .. ")")
             end
         end
     end
-    
-    -- Sort
-    table.sort(checkpoints, function(a, b)
-        local idA = a:GetAttribute("CheckpointId")
-        local idB = b:GetAttribute("CheckpointId")
-        if idA and idB then
-            return tonumber(idA) < tonumber(idB)
-        end
-        return a.Position.X < b.Position.X
-    end)
-    
-    print("📊 Total checkpoints: " .. #checkpoints)
+
     updateProgress()
-    
-    if #checkpoints > 0 then
-        updateStatus("Ready! Found " .. #checkpoints .. " checkpoints", Color3.fromRGB(50, 255, 50))
-    else
-        updateStatus("No checkpoints found!", Color3.fromRGB(255, 50, 50))
-    end
+    updateStatus("Auto scan complete! " .. #checkpoints .. " checkpoints", Color3.fromRGB(50, 255, 50))
 end
 
 local function teleportTo(part)
@@ -272,7 +319,6 @@ local function startAutoTeleport()
 end
 
 -- === BUTTON EVENTS ===
-
 StartButton.MouseButton1Click:Connect(function()
     print("🖱️  Start button clicked")
     
@@ -302,6 +348,20 @@ StopButton.MouseButton1Click:Connect(function()
     end
 end)
 
+ModeButton.MouseButton1Click:Connect(function()
+    manualMode = not manualMode
+    if manualMode then
+        ModeButton.Text = "Mode: Manual"
+        checkpoints = {}
+        touchedCheckpoints = {}
+        updateStatus("Manual mode: touch checkpoints to register", Color3.fromRGB(255, 200, 0))
+    else
+        ModeButton.Text = "Mode: Auto"
+        updateStatus("Auto mode: scanning checkpoints...", Color3.fromRGB(255, 200, 0))
+        findCheckpoints()
+    end
+end)
+
 -- === INITIALIZE ===
 wait(1)
 print("🎮 Initializing...")
@@ -319,4 +379,5 @@ print("   1. GUI is at center of screen")
 print("   2. Drag GUI to move it")
 print("   3. Click START button to begin")
 print("   4. Click STOP button to stop")
+print("   5. Toggle Mode button for Auto/Manual")
 print("=" .. string.rep("=", 50))
