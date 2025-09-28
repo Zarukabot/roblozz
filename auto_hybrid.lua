@@ -1,8 +1,8 @@
--- Simple Lua Auto Teleport
+-- Smart Auto Teleport - Only Untouched Checkpoints
 -- Tekan F untuk toggle ON/OFF
 -- Tekan G untuk ganti mode Fly/Reset
 
-print("🚀 Loading Simple Lua Teleport...")
+print("🚀 Loading Smart Auto Teleport...")
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -13,12 +13,51 @@ local LocalPlayer = Players.LocalPlayer
 local autoEnabled = false
 local mode = "Fly" -- Fly atau Reset
 local checkpoints = {}
-local currentIndex = 1
+local touchedCheckpoints = {} -- Track checkpoint yang sudah disentuh
+
+-- Setup touch detection untuk checkpoint
+local function setupTouchDetection(part)
+    if part:GetAttribute("TouchSetup") then return end -- Sudah di-setup
+    part:SetAttribute("TouchSetup", true)
+    
+    part.Touched:Connect(function(hit)
+        local character = hit.Parent
+        if character and Players:GetPlayerFromCharacter(character) == LocalPlayer then
+            if not touchedCheckpoints[part] then
+                touchedCheckpoints[part] = true
+                print("✅ Checkpoint touched: " .. part.Name)
+                print("🎯 Remaining untouched: " .. getUntouchedCount())
+            end
+        end
+    end)
+end
+
+-- Hitung checkpoint yang belum disentuh
+local function getUntouchedCount()
+    local count = 0
+    for _, cp in ipairs(checkpoints) do
+        if not touchedCheckpoints[cp] then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+-- Cari checkpoint berikutnya yang belum disentuh
+local function getNextUntouchedCheckpoint()
+    for _, cp in ipairs(checkpoints) do
+        if not touchedCheckpoints[cp] and cp.Parent then
+            return cp
+        end
+    end
+    return nil -- Semua sudah disentuh
+end
 
 -- Cari checkpoints
 local function findCheckpoints()
     print("🔍 Mencari checkpoints...")
     checkpoints = {}
+    touchedCheckpoints = {} -- Reset tracking
     
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") then
@@ -29,12 +68,18 @@ local function findCheckpoints()
                name:find("teleport") or name:find("spawn") or name:find("part") then
                 table.insert(checkpoints, obj)
                 print("✅ Found: " .. obj.Name)
+                
+                -- Setup touch detection
+                setupTouchDetection(obj)
             end
             
             -- Atau berdasarkan attribute
             if obj:GetAttribute("CheckpointId") then
-                table.insert(checkpoints, obj)
-                print("✅ Found (ID): " .. obj.Name .. " - ID:" .. obj:GetAttribute("CheckpointId"))
+                if not table.find(checkpoints, obj) then -- Avoid duplicates
+                    table.insert(checkpoints, obj)
+                    print("✅ Found (ID): " .. obj.Name .. " - ID:" .. obj:GetAttribute("CheckpointId"))
+                    setupTouchDetection(obj)
+                end
             end
         end
     end
@@ -52,6 +97,7 @@ local function findCheckpoints()
     end)
     
     print("📊 Total checkpoints: " .. #checkpoints)
+    print("🎯 Untouched checkpoints: " .. getUntouchedCount())
     return checkpoints
 end
 
@@ -108,44 +154,50 @@ local function teleportTo(part)
     return true
 end
 
--- Main auto loop
+-- Main auto loop - HANYA KE CHECKPOINT YANG BELUM DISENTUH
 local function startAutoLoop()
-    print("🔥 Starting auto teleport loop...")
+    print("🔥 Starting smart auto teleport (untouched only)...")
     
     spawn(function()
         while autoEnabled do
-            if #checkpoints == 0 then
-                print("❌ No checkpoints found!")
+            local nextCheckpoint = getNextUntouchedCheckpoint()
+            
+            if not nextCheckpoint then
+                print("🎉 ALL CHECKPOINTS COMPLETED!")
+                print("✅ No more untouched checkpoints found")
+                autoEnabled = false
                 break
             end
             
-            -- Reset index if exceeded
-            if currentIndex > #checkpoints then
-                currentIndex = 1
-                print("🔄 Looping back to first checkpoint")
+            -- Cari index untuk display
+            local checkpointIndex = table.find(checkpoints, nextCheckpoint) or 0
+            print("🎯 Going to untouched checkpoint " .. checkpointIndex .. ": " .. nextCheckpoint.Name)
+            
+            local success = teleportTo(nextCheckpoint)
+            if success then
+                -- Wait a bit for touch detection to register
+                wait(1)
+                
+                -- Double check if touched
+                if not touchedCheckpoints[nextCheckpoint] then
+                    print("⚠️  Checkpoint may not have registered touch, marking as touched")
+                    touchedCheckpoints[nextCheckpoint] = true
+                end
+                
+                wait(1.5) -- Wait before next teleport
+            else
+                print("❌ Teleport failed, trying next checkpoint")
+                wait(1)
             end
             
-            local targetCheckpoint = checkpoints[currentIndex]
-            if targetCheckpoint and targetCheckpoint.Parent then
-                print("📍 Going to checkpoint " .. currentIndex .. "/" .. #checkpoints .. ": " .. targetCheckpoint.Name)
-                
-                local success = teleportTo(targetCheckpoint)
-                if success then
-                    currentIndex = currentIndex + 1
-                    wait(2) -- Wait 2 seconds between teleports
-                else
-                    print("❌ Teleport failed, trying next checkpoint")
-                    currentIndex = currentIndex + 1
-                    wait(1)
-                end
-            else
-                print("❌ Checkpoint " .. currentIndex .. " tidak valid, skip...")
-                currentIndex = currentIndex + 1
-                wait(0.5)
+            -- Status update
+            local remaining = getUntouchedCount()
+            if remaining > 0 then
+                print("📊 Remaining untouched checkpoints: " .. remaining)
             end
         end
         
-        print("🛑 Auto teleport stopped")
+        print("🛑 Smart auto teleport stopped")
     end)
 end
 
@@ -154,22 +206,30 @@ local function toggleAuto()
     autoEnabled = not autoEnabled
     
     if autoEnabled then
-        print("🟢 AUTO TELEPORT: ON")
+        print("🟢 SMART AUTO TELEPORT: ON")
         print("⌨️  Tekan F lagi untuk stop")
         print("⌨️  Tekan G untuk ganti mode")
+        print("🎯 Hanya akan teleport ke checkpoint yang BELUM disentuh")
         
         -- Find checkpoints first
         findCheckpoints()
-        currentIndex = 1
         
         if #checkpoints > 0 then
-            startAutoLoop()
+            local untouchedCount = getUntouchedCount()
+            if untouchedCount > 0 then
+                print("🎯 Found " .. untouchedCount .. " untouched checkpoints")
+                startAutoLoop()
+            else
+                print("✅ All checkpoints already touched!")
+                print("💡 Use _G.resetProgress() to reset progress")
+                autoEnabled = false
+            end
         else
             print("❌ Tidak ada checkpoint ditemukan!")
             autoEnabled = false
         end
     else
-        print("🔴 AUTO TELEPORT: OFF")
+        print("🔴 SMART AUTO TELEPORT: OFF")
     end
 end
 
@@ -210,23 +270,38 @@ end
 findCheckpoints()
 
 -- Instructions
-print("\n📝 === CONTROLS ===")
+print("\n📝 === SMART TELEPORT CONTROLS ===")
 print("⌨️  F = Toggle Auto ON/OFF")
 print("⌨️  G = Change Mode (Fly/Reset)")
 print("💡 Mode FLY = Smooth teleport")
 print("💡 Mode RESET = Kill & respawn")
+print("🎯 HANYA teleport ke checkpoint yang BELUM disentuh!")
 print("🚀 Ready to use!")
 
--- Global functions untuk manual control (opsional)
+-- Global functions untuk manual control
 _G.teleportToIndex = teleportToIndex
 _G.listCheckpoints = function()
     print("📋 Available checkpoints:")
     for i, cp in ipairs(checkpoints) do
-        print(i .. ". " .. cp.Name .. " at " .. tostring(cp.Position))
+        local status = touchedCheckpoints[cp] and "✅ TOUCHED" or "❌ UNTOUCHED"
+        print(i .. ". " .. cp.Name .. " at " .. tostring(cp.Position) .. " - " .. status)
     end
+    print("🎯 Total untouched: " .. getUntouchedCount() .. "/" .. #checkpoints)
 end
 _G.refreshCheckpoints = findCheckpoints
+_G.resetProgress = function()
+    touchedCheckpoints = {}
+    print("🔄 Progress reset! All checkpoints marked as untouched")
+    print("🎯 Untouched checkpoints: " .. getUntouchedCount())
+end
+_G.markAllTouched = function()
+    for _, cp in ipairs(checkpoints) do
+        touchedCheckpoints[cp] = true
+    end
+    print("✅ All checkpoints marked as touched")
+end
 
-print("✅ Simple Lua Teleport loaded!")
-print("💡 Tip: Ketik _G.listCheckpoints() untuk lihat semua checkpoint")
-print("💡 Tip: Ketik _G.teleportToIndex(1) untuk teleport manual")
+print("✅ Smart Auto Teleport loaded!")
+print("💡 Tip: Ketik _G.listCheckpoints() untuk lihat status checkpoint")
+print("💡 Tip: Ketik _G.resetProgress() untuk reset progress")
+print("💡 Script akan otomatis skip checkpoint yang sudah disentuh!")
