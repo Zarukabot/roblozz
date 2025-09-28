@@ -58,7 +58,7 @@ local function findCheckpoints()
     touchedCheckpoints = {}
     
     local scannedCount = 0
-    local maxScan = 800 -- Reduced from 1000
+    local maxScan = 800
     
     for _, obj in pairs(workspace:GetDescendants()) do
         if scannedCount >= maxScan then
@@ -70,14 +70,12 @@ local function findCheckpoints()
         if obj:IsA("BasePart") then
             local name = obj.Name:lower()
             
-            -- Only search for specific names
             if name:find("checkpoint") or name:find("stage") or name:find("cp") then
                 table.insert(checkpoints, obj)
                 print("✅ Found: " .. obj.Name)
                 setupTouchDetection(obj)
             end
             
-            -- Or by attribute
             if obj:GetAttribute("CheckpointId") then
                 if not table.find(checkpoints, obj) then
                     table.insert(checkpoints, obj)
@@ -87,13 +85,11 @@ local function findCheckpoints()
             end
         end
         
-        -- Yield every 30 objects (reduced from 50)
         if scannedCount % 30 == 0 then
             RunService.Heartbeat:Wait()
         end
     end
     
-    -- Sort checkpoints
     table.sort(checkpoints, function(a, b)
         local idA = a:GetAttribute("CheckpointId")
         local idB = b:GetAttribute("CheckpointId")
@@ -119,26 +115,17 @@ local function smoothTeleport(part)
     
     print("✈️ Smooth flying to: " .. part.Name)
     
-    local targetPos = part.Position + Vector3.new(0, 6, 0) -- Higher for safety
+    local targetPos = part.Position + Vector3.new(0, 6, 0)
     local distance = (hrp.Position - targetPos).Magnitude
     
-    -- Very smooth settings
-    local speed = 40 -- Even slower for ultra-smooth
-    local duration = math.max(1, distance / speed) -- Minimum 1 second
+    local speed = 40
+    local duration = math.max(1, distance / speed)
     
     print("🛸 Distance: " .. math.floor(distance) .. " studs | Time: " .. math.floor(duration*10)/10 .. "s")
     
-    -- Ultra-smooth tween
     local tween = TweenService:Create(
         hrp,
-        TweenInfo.new(
-            duration, 
-            Enum.EasingStyle.Sine, -- Very smooth easing
-            Enum.EasingDirection.InOut,
-            0, -- No repeat
-            false, -- No reverse
-            0 -- No delay
-        ),
+        TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
         {CFrame = CFrame.new(targetPos)}
     )
     
@@ -151,7 +138,6 @@ end
 local function startSmoothTeleport()
     print("🎯 SMOOTH AUTO TELEPORT STARTED!")
     print("🐌 Ultra-smooth mode: 40 studs/sec")
-    print("✨ Maximum performance optimization")
     
     spawn(function()
         while autoEnabled do
@@ -159,7 +145,6 @@ local function startSmoothTeleport()
             
             if not nextCheckpoint then
                 print("🎉 MISSION COMPLETE!")
-                print("✅ All checkpoints conquered!")
                 autoEnabled = false
                 break
             end
@@ -167,42 +152,32 @@ local function startSmoothTeleport()
             local index = table.find(checkpoints, nextCheckpoint) or 0
             local remaining = getUntouchedCount()
             
-            print("🎯 Next: " .. nextCheckpoint.Name .. " (" .. (index) .. "/" .. #checkpoints .. ")")
-            print("📊 Progress: " .. (#checkpoints - remaining) .. "/" .. #checkpoints .. " done")
+            print("🎯 Next: " .. nextCheckpoint.Name .. " (" .. index .. "/" .. #checkpoints .. ")")
+            print("📊 Progress: " .. (#checkpoints - remaining) .. "/" .. #checkpoints)
             
             local success = smoothTeleport(nextCheckpoint)
             
             if success then
-                print("✅ Teleport successful!")
+                wait(2.5)
                 
-                -- Wait for touch registration
-                wait(2.5) -- Longer wait
-                
-                -- Force mark if needed
                 if not touchedCheckpoints[nextCheckpoint] then
-                    print("🔧 Auto-marking checkpoint as completed")
                     touchedCheckpoints[nextCheckpoint] = true
                 end
                 
-                -- Long delay between teleports for stability
-                print("⏳ Waiting 4 seconds before next teleport...")
+                print("⏳ Waiting 4 seconds...")
                 wait(4)
-                
             else
-                print("❌ Teleport failed, waiting 6 seconds...")
                 wait(6)
             end
             
-            -- Extra yield for performance
-            RunService.Heartbeat:Wait()
             RunService.Heartbeat:Wait()
         end
         
-        print("🏁 Auto teleport completed successfully!")
+        print("🏁 Completed!")
     end)
 end
 
--- Wait for character (with timeout)
+-- Wait for character
 local function waitForCharacter()
     print("⏳ Waiting for character...")
     local timeOut = 0
@@ -213,92 +188,42 @@ local function waitForCharacter()
     end
     
     if LocalPlayer.Character then
-        wait(3) -- Extra wait for full load
+        wait(3)
         print("✅ Character ready!")
         return true
-    else
-        print("❌ Character spawn timeout!")
-        return false
     end
+    return false
 end
 
--- === MAIN EXECUTION ===
-print("🚀 INITIALIZING ULTRA-SMOOTH TELEPORT...")
+-- MAIN
+print("🚀 INITIALIZING...")
 
--- Wait for character
 if not waitForCharacter() then
-    print("❌ Failed to initialize - character not found")
+    print("❌ Character not found")
     return
 end
 
--- Find checkpoints
 findCheckpoints()
 
--- Start if checkpoints found
 if #checkpoints > 0 then
-    print("🎮 ULTRA-SMOOTH TELEPORT STARTING IN 5 SECONDS...")
-    print("⚡ Anti-lag optimizations active")
-    print("🐌 Speed: 40 studs/sec (ultra-smooth)")
-    print("⏱️  Delays: 4 seconds between teleports")
-    
+    print("🎮 STARTING IN 5 SECONDS...")
     for i = 5, 1, -1 do
         print(i .. "...")
         wait(1)
     end
     
-    print("🚀 LAUNCHING SMOOTH TELEPORT!")
+    print("🚀 GO!")
     startSmoothTeleport()
-    
 else
-    print("❌ No checkpoints detected!")
-    print("💡 Looking for parts named: checkpoint, stage, cp")
-    print("💡 Or parts with CheckpointId attribute")
+    print("❌ No checkpoints found!")
 end
 
--- Control functions
-_G.stopTeleport = function()
-    autoEnabled = false
-    print("🛑 Smooth teleport stopped")
+-- Commands
+_G.stop = function() autoEnabled = false print("🛑 Stopped") end
+_G.start = function() if not autoEnabled then autoEnabled = true startSmoothTeleport() end end
+_G.status = function() 
+    print("Running: " .. (autoEnabled and "YES" or "NO"))
+    print("Remaining: " .. getUntouchedCount())
 end
 
-_G.startTeleport = function()
-    if not autoEnabled then
-        autoEnabled = true
-        startSmoothTeleport()
-    else
-        print("⚠️  Teleport already running")
-    end
-end
-
-_G.checkStatus = function()
-    print("📊 STATUS REPORT:")
-    print("   Running: " .. (autoEnabled and "✅ YES" or "❌ NO"))
-    print("   Checkpoints: " .. #checkpoints)
-    print("   Completed: " .. (#checkpoints - getUntouchedCount()))
-    print("   Remaining: " .. getUntouchedCount())
-end
-
-_G.listAll = function()
-    print("📋 ALL CHECKPOINTS:")
-    for i, cp in ipairs(checkpoints) do
-        local status = touchedCheckpoints[cp] and "✅ DONE" or "❌ TODO"
-        print("   " .. i .. ". " .. cp.Name .. " - " .. status)
-    end
-end
-
-_G.resetAll = function()
-    touchedCheckpoints = {}
-    print("🔄 All progress reset!")
-end
-
-print("\n📝 === ULTRA-SMOOTH TELEPORT ACTIVE ===")
-print("🐌 Speed optimized for zero lag")
-print("⏱️  4-second delays between teleports")
-print("🛸 Smooth sine-wave movement")
-print("\n💡 Available commands:")
-print("   _G.stopTeleport() - Stop script")
-print("   _G.startTeleport() - Restart script")
-print("   _G.checkStatus() - View progress")
-print("   _G.listAll() - List all checkpoints")
-print("   _G.resetAll() - Reset progress")
-print("\n🚀 Ultra-smooth teleport is running!")
+print("✅ Script loaded! Ultra-smooth mode active")
