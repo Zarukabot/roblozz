@@ -1,5 +1,5 @@
 
--- Auto Teleport Checkpoints (Fix v2)
+-- Auto Teleport Checkpoints (Sequential Mode)
 -- By Zarukabot
 
 local Players = game:GetService("Players")
@@ -51,13 +51,19 @@ delayBox.Parent = frame
 local autoEnabled = false
 local checkpoints = {}
 local visited = {}
+local currentIndex = 1
 
--- Ambil semua checkpoint
+-- Ambil semua checkpoint (urut sesuai order di workspace)
 for _, obj in ipairs(workspace:GetDescendants()) do
 	if obj:IsA("BasePart") and (obj.Name:lower():find("checkpoint") or obj:IsA("SpawnLocation")) then
 		table.insert(checkpoints, obj)
 	end
 end
+
+-- Sortir biar konsisten
+table.sort(checkpoints, function(a, b)
+	return a.Position.X < b.Position.X -- bisa diganti ke Y/Z sesuai urutan map
+end)
 
 -- Fungsi teleport + tandai visited
 local function teleportTo(part, index)
@@ -66,48 +72,29 @@ local function teleportTo(part, index)
 	hrp.CFrame = part.CFrame + Vector3.new(0, 3, 0)
 
 	-- tandai langsung sebagai visited
-	if index then
-		visited[index] = true
-		print("✅ Checkpoint "..index.." ditandai sudah dikunjungi")
-	end
+	visited[index] = true
+	print("✅ Checkpoint "..index.." sudah dikunjungi")
 end
 
--- Cari checkpoint terdekat yang belum
-local function getNextCheckpoint()
-	local char = LocalPlayer.Character
-	if not char then return nil, nil end
-	local hrp = char:FindFirstChild("HumanoidRootPart")
-	if not hrp then return nil, nil end
-
-	local closest, dist, idx = nil, math.huge, nil
-	for i, part in ipairs(checkpoints) do
-		if not visited[i] then
-			local d = (part.Position - hrp.Position).Magnitude
-			if d < dist then
-				closest, dist, idx = part, d, i
-			end
-		end
-	end
-	return closest, idx
-end
-
--- Loop auto
+-- Loop auto (berurutan)
 local function autoLoop()
-	while autoEnabled do
+	while autoEnabled and currentIndex <= #checkpoints do
 		local delayTime = tonumber(delayBox.Text) or 5
-		local target, idx = getNextCheckpoint()
 
-		if target then
-			print("Teleport ke checkpoint "..idx)
-			teleportTo(target, idx)
-		else
-			print("✅ Semua checkpoint sudah dikunjungi")
-			autoEnabled = false
-			autoBtn.Text = "Auto: OFF"
-			break
+		if not visited[currentIndex] then
+			local target = checkpoints[currentIndex]
+			print("Teleport ke checkpoint "..currentIndex)
+			teleportTo(target, currentIndex)
 		end
 
+		currentIndex += 1
 		task.wait(delayTime)
+	end
+
+	if currentIndex > #checkpoints then
+		print("✅ Semua checkpoint sudah dikunjungi secara berurutan")
+		autoEnabled = false
+		autoBtn.Text = "Auto: OFF"
 	end
 end
 
@@ -121,4 +108,4 @@ autoBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
-print("✅ Auto Teleport Checkpoints Loaded (Fix v2)")
+print("✅ Auto Teleport Checkpoints Loaded (Sequential Mode)")
