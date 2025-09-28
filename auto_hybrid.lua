@@ -1,4 +1,5 @@
--- Universal Auto Checkpoint Teleporter
+-- Auto Teleport Checkpoints (Fix)
+-- Hanya teleport ke Checkpoint / SpawnLocation yang belum disentuh
 -- By Zarukabot
 
 local Players = game:GetService("Players")
@@ -7,7 +8,7 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- GUI
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoUniversalGUI"
+screenGui.Name = "AutoCheckpointGUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = PlayerGui
 
@@ -43,7 +44,7 @@ delayBox.Position = UDim2.new(0.1, 0, 0.55, 0)
 delayBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 delayBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 delayBox.TextScaled = true
-delayBox.Text = "5" -- default delay detik
+delayBox.Text = "5" -- default 5 detik
 delayBox.Parent = frame
 
 -- Variabel
@@ -52,9 +53,9 @@ local checkpoints = {}
 local visited = {}
 local spawnCFrame = nil
 
--- Ambil semua checkpoint kandidat
+-- Ambil semua checkpoint
 for _, obj in ipairs(workspace:GetDescendants()) do
-	if obj:IsA("BasePart") and obj.CanCollide then
+	if obj:IsA("BasePart") and (obj.Name:lower():find("checkpoint") or obj:IsA("SpawnLocation")) then
 		table.insert(checkpoints, obj)
 	end
 end
@@ -66,7 +67,7 @@ local function teleportTo(part)
 	hrp.CFrame = part.CFrame + Vector3.new(0, 3, 0)
 end
 
--- Saat player spawn, simpan posisi
+-- Simpan spawn awal
 local function onCharacterAdded(char)
 	task.wait(0.5)
 	local hrp = char:WaitForChild("HumanoidRootPart")
@@ -116,15 +117,9 @@ local function autoLoop()
 		if target then
 			print("Teleport ke checkpoint belum dikunjungi")
 			teleportTo(target)
-		elseif spawnCFrame then
-			print("Semua checkpoint sudah, teleport ke spawn")
-			local char = LocalPlayer.Character
-			if char then
-				local hrp = char:FindFirstChild("HumanoidRootPart")
-				if hrp then
-					hrp.CFrame = spawnCFrame + Vector3.new(0,3,0)
-				end
-			end
+		else
+			print("✅ Semua checkpoint sudah dikunjungi")
+			break
 		end
 
 		task.wait(delayTime)
@@ -141,4 +136,4 @@ autoBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
-print("✅ Universal Auto Teleport Checkpoints Loaded")
+print("✅ Auto Teleport Checkpoints Loaded")
