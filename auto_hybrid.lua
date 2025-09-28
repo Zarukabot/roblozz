@@ -1,5 +1,4 @@
-
--- Auto Teleport Checkpoint Belum Dikunjungi
+-- Auto Teleport Checkpoint (Manual Toggle, Sequential)
 -- By Zarukabot
 
 local Players = game:GetService("Players")
@@ -89,12 +88,9 @@ autoBtn.MouseButton1Click:Connect(function()
 					teleportTo(target)
 					print("Teleport ke checkpoint:", target.Name)
 				else
-					print("✅ Semua checkpoint sudah dikunjungi")
-					autoEnabled = false
-					autoBtn.Text = "Auto: OFF"
-					break
+					print("✅ Semua checkpoint sudah dikunjungi (idle)")
 				end
-				task.wait(5) -- delay biar tidak spam
+				task.wait(5) -- delay antar teleport
 			end
 		end)
 	end
