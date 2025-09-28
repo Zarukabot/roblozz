@@ -1,256 +1,232 @@
--- Simple Test Version - Auto Teleport GUI
-print("🚀 Loading Simple Auto Teleport...")
+-- Simple Lua Auto Teleport
+-- Tekan F untuk toggle ON/OFF
+-- Tekan G untuk ganti mode Fly/Reset
+
+print("🚀 Loading Simple Lua Teleport...")
 
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
--- Hapus GUI lama jika ada
-if PlayerGui:FindFirstChild("AutoTeleportGUI") then
-    PlayerGui.AutoTeleportGUI:Destroy()
-end
-
-print("✅ Creating GUI...")
-
--- GUI
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoTeleportGUI"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = PlayerGui
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 250, 0, 150)
-frame.Position = UDim2.new(0.5, -125, 0.3, 0)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-frame.BackgroundTransparency = 0.1
-frame.Active = true
-frame.Draggable = true
-frame.Parent = screenGui
-
--- Corner
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = frame
-
--- Title
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0.2, 0)
-title.BackgroundTransparency = 1
-title.Text = "🚀 AUTO TELEPORT"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextScaled = true
-title.Font = Enum.Font.GothamBold
-title.Parent = frame
-
--- Status
-local status = Instance.new("TextLabel")
-status.Size = UDim2.new(1, 0, 0.25, 0)
-status.Position = UDim2.new(0, 0, 0.2, 0)
-status.BackgroundTransparency = 1
-status.Text = "Status: Loading..."
-status.TextColor3 = Color3.fromRGB(200, 200, 200)
-status.TextScaled = true
-status.Font = Enum.Font.Gotham
-status.Parent = frame
-
--- Auto Button
-local autoBtn = Instance.new("TextButton")
-autoBtn.Size = UDim2.new(0.8, 0, 0.25, 0)
-autoBtn.Position = UDim2.new(0.1, 0, 0.5, 0)
-autoBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-autoBtn.TextScaled = true
-autoBtn.Text = "🔴 AUTO: OFF"
-autoBtn.Font = Enum.Font.GothamBold
-autoBtn.Parent = frame
-
-local autoBtnCorner = Instance.new("UICorner")
-autoBtnCorner.CornerRadius = UDim.new(0, 5)
-autoBtnCorner.Parent = autoBtn
-
--- Mode Button  
-local modeBtn = Instance.new("TextButton")
-modeBtn.Size = UDim2.new(0.8, 0, 0.2, 0)
-modeBtn.Position = UDim2.new(0.1, 0, 0.78, 0)
-modeBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
-modeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-modeBtn.TextScaled = true
-modeBtn.Text = "✈️ MODE: FLY"
-modeBtn.Font = Enum.Font.Gotham
-modeBtn.Parent = frame
-
-local modeBtnCorner = Instance.new("UICorner")
-modeBtnCorner.CornerRadius = UDim.new(0, 5)
-modeBtnCorner.Parent = modeBtn
-
-print("✅ GUI Created!")
 
 -- Variables
 local autoEnabled = false
-local mode = "Fly"
+local mode = "Fly" -- Fly atau Reset
 local checkpoints = {}
 local currentIndex = 1
 
--- Find checkpoints
+-- Cari checkpoints
 local function findCheckpoints()
-    print("🔍 Searching for checkpoints...")
+    print("🔍 Mencari checkpoints...")
     checkpoints = {}
     
-    -- Cari dengan berbagai cara
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") then
             local name = obj.Name:lower()
-            -- Cari berdasarkan nama
+            
+            -- Cari berdasarkan nama yang umum
             if name:find("checkpoint") or name:find("stage") or name:find("cp") or 
-               name:find("teleport") or name:find("spawn") then
+               name:find("teleport") or name:find("spawn") or name:find("part") then
                 table.insert(checkpoints, obj)
-                print("📍 Found: " .. obj.Name .. " at " .. tostring(obj.Position))
+                print("✅ Found: " .. obj.Name)
             end
             
             -- Atau berdasarkan attribute
             if obj:GetAttribute("CheckpointId") then
-                if not table.find(checkpoints, obj) then
-                    table.insert(checkpoints, obj)
-                    print("📍 Found (by ID): " .. obj.Name .. " ID:" .. tostring(obj:GetAttribute("CheckpointId")))
-                end
+                table.insert(checkpoints, obj)
+                print("✅ Found (ID): " .. obj.Name .. " - ID:" .. obj:GetAttribute("CheckpointId"))
             end
         end
     end
     
-    print("📊 Total found: " .. #checkpoints)
+    -- Sort berdasarkan posisi X jika tidak ada ID
+    table.sort(checkpoints, function(a, b)
+        local idA = a:GetAttribute("CheckpointId")
+        local idB = b:GetAttribute("CheckpointId")
+        
+        if idA and idB then
+            return tonumber(idA) < tonumber(idB)
+        else
+            return a.Position.X < b.Position.X -- Sort berdasarkan posisi X
+        end
+    end)
     
-    if #checkpoints > 0 then
-        status.Text = "Ready! Found " .. #checkpoints .. " checkpoints"
-        status.TextColor3 = Color3.fromRGB(100, 255, 100)
-    else
-        status.Text = "❌ No checkpoints found!"
-        status.TextColor3 = Color3.fromRGB(255, 100, 100)
-    end
-    
-    return #checkpoints > 0
+    print("📊 Total checkpoints: " .. #checkpoints)
+    return checkpoints
 end
 
--- Teleport function
+-- Teleport ke checkpoint
 local function teleportTo(part)
     local char = LocalPlayer.Character
-    if not char then return false end
+    if not char then 
+        print("❌ Character not found")
+        return false 
+    end
     
     local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return false end
+    if not hrp then 
+        print("❌ HumanoidRootPart not found")
+        return false 
+    end
     
-    print("🚀 Teleporting to: " .. part.Name)
+    print("🚀 Teleporting to: " .. part.Name .. " | Mode: " .. mode)
     
     if mode == "Fly" then
-        -- Fly mode - smooth movement
+        -- Mode Fly - smooth movement
         local targetPos = part.Position + Vector3.new(0, 5, 0)
         local distance = (hrp.Position - targetPos).Magnitude
-        local duration = distance / 100 -- 100 speed
+        local speed = 100 -- studs per second
+        local duration = math.max(0.1, distance / speed)
+        
+        print("✈️ Flying " .. math.floor(distance) .. " studs in " .. math.floor(duration*10)/10 .. "s")
         
         local tween = TweenService:Create(
             hrp,
-            TweenInfo.new(duration, Enum.EasingStyle.Quad),
+            TweenInfo.new(duration, Enum.EasingStyle.Linear),
             {CFrame = CFrame.new(targetPos)}
         )
         
         tween:Play()
         tween.Completed:Wait()
+        
     else
-        -- Reset mode
+        -- Mode Reset
+        print("💀 Reset mode - killing character...")
         char.Humanoid.Health = 0
-        LocalPlayer.CharacterAdded:Wait()
-        task.wait(1)
-        local newChar = LocalPlayer.Character
-        if newChar and newChar:FindFirstChild("HumanoidRootPart") then
-            newChar.HumanoidRootPart.CFrame = part.CFrame + Vector3.new(0, 5, 0)
+        
+        -- Wait for respawn
+        local newChar = LocalPlayer.CharacterAdded:Wait()
+        wait(1.5) -- Wait for character to fully load
+        
+        local newHrp = newChar:WaitForChild("HumanoidRootPart", 5)
+        if newHrp then
+            newHrp.CFrame = part.CFrame + Vector3.new(0, 5, 0)
+            print("🏃 Respawned at checkpoint")
         end
     end
     
     return true
 end
 
--- Auto loop
-local function startAuto()
-    print("🚀 Starting auto teleport...")
-    task.spawn(function()
-        while autoEnabled and #checkpoints > 0 do
-            if currentIndex > #checkpoints then
-                currentIndex = 1 -- Loop back
+-- Main auto loop
+local function startAutoLoop()
+    print("🔥 Starting auto teleport loop...")
+    
+    spawn(function()
+        while autoEnabled do
+            if #checkpoints == 0 then
+                print("❌ No checkpoints found!")
+                break
             end
             
-            local target = checkpoints[currentIndex]
-            if target and target.Parent then
-                local success = teleportTo(target)
+            -- Reset index if exceeded
+            if currentIndex > #checkpoints then
+                currentIndex = 1
+                print("🔄 Looping back to first checkpoint")
+            end
+            
+            local targetCheckpoint = checkpoints[currentIndex]
+            if targetCheckpoint and targetCheckpoint.Parent then
+                print("📍 Going to checkpoint " .. currentIndex .. "/" .. #checkpoints .. ": " .. targetCheckpoint.Name)
+                
+                local success = teleportTo(targetCheckpoint)
                 if success then
-                    status.Text = "Teleported to " .. target.Name .. " (" .. currentIndex .. "/" .. #checkpoints .. ")"
                     currentIndex = currentIndex + 1
+                    wait(2) -- Wait 2 seconds between teleports
+                else
+                    print("❌ Teleport failed, trying next checkpoint")
+                    currentIndex = currentIndex + 1
+                    wait(1)
                 end
             else
+                print("❌ Checkpoint " .. currentIndex .. " tidak valid, skip...")
                 currentIndex = currentIndex + 1
+                wait(0.5)
             end
-            
-            task.wait(2) -- Wait 2 seconds between teleports
         end
         
-        if autoEnabled then
-            print("✅ Auto teleport completed!")
-            status.Text = "Completed all checkpoints!"
-            autoEnabled = false
-            autoBtn.Text = "🔴 AUTO: OFF"
-            autoBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-        end
+        print("🛑 Auto teleport stopped")
     end)
 end
 
--- Button events
-autoBtn.MouseButton1Click:Connect(function()
-    print("🖱️ Auto button clicked!")
+-- Toggle auto on/off
+local function toggleAuto()
+    autoEnabled = not autoEnabled
     
-    if not autoEnabled then
-        -- Start auto
-        if #checkpoints == 0 then
-            findCheckpoints()
-        end
+    if autoEnabled then
+        print("🟢 AUTO TELEPORT: ON")
+        print("⌨️  Tekan F lagi untuk stop")
+        print("⌨️  Tekan G untuk ganti mode")
+        
+        -- Find checkpoints first
+        findCheckpoints()
+        currentIndex = 1
         
         if #checkpoints > 0 then
-            autoEnabled = true
-            autoBtn.Text = "🟢 AUTO: ON"
-            autoBtn.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-            currentIndex = 1
-            startAuto()
+            startAutoLoop()
         else
-            status.Text = "❌ No checkpoints found!"
-            print("❌ No checkpoints to teleport to!")
+            print("❌ Tidak ada checkpoint ditemukan!")
+            autoEnabled = false
         end
     else
-        -- Stop auto
-        autoEnabled = false
-        autoBtn.Text = "🔴 AUTO: OFF" 
-        autoBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-        status.Text = "Stopped"
-        print("🛑 Auto teleport stopped")
+        print("🔴 AUTO TELEPORT: OFF")
     end
-end)
+end
 
-modeBtn.MouseButton1Click:Connect(function()
+-- Toggle mode
+local function toggleMode()
     if mode == "Fly" then
         mode = "Reset"
-        modeBtn.Text = "💀 MODE: RESET"
-        modeBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+        print("🔄 Mode changed to: RESET (kill & respawn)")
     else
-        mode = "Fly"
-        modeBtn.Text = "✈️ MODE: FLY"
-        modeBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
+        mode = "Fly"  
+        print("🔄 Mode changed to: FLY (smooth movement)")
     end
-    print("🔄 Mode changed to: " .. mode)
+end
+
+-- Keyboard controls
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.F then
+        toggleAuto()
+    elseif input.KeyCode == Enum.KeyCode.G then
+        toggleMode()
+    end
 end)
 
--- Auto-find checkpoints on load
+-- Manual teleport to specific checkpoint
+local function teleportToIndex(index)
+    if index < 1 or index > #checkpoints then
+        print("❌ Index " .. index .. " tidak valid! Max: " .. #checkpoints)
+        return
+    end
+    
+    local checkpoint = checkpoints[index]
+    teleportTo(checkpoint)
+end
+
+-- Load checkpoints on start
 findCheckpoints()
 
-print("✅ Simple Auto Teleport GUI loaded!")
-print("📝 Instructions:")
-print("   1. Click 'AUTO: OFF' to start")  
-print("   2. Click 'MODE' to change Fly/Reset")
-print("   3. Drag the GUI to move it")
-print("   4. Check console for debug info")
+-- Instructions
+print("\n📝 === CONTROLS ===")
+print("⌨️  F = Toggle Auto ON/OFF")
+print("⌨️  G = Change Mode (Fly/Reset)")
+print("💡 Mode FLY = Smooth teleport")
+print("💡 Mode RESET = Kill & respawn")
+print("🚀 Ready to use!")
+
+-- Global functions untuk manual control (opsional)
+_G.teleportToIndex = teleportToIndex
+_G.listCheckpoints = function()
+    print("📋 Available checkpoints:")
+    for i, cp in ipairs(checkpoints) do
+        print(i .. ". " .. cp.Name .. " at " .. tostring(cp.Position))
+    end
+end
+_G.refreshCheckpoints = findCheckpoints
+
+print("✅ Simple Lua Teleport loaded!")
+print("💡 Tip: Ketik _G.listCheckpoints() untuk lihat semua checkpoint")
+print("💡 Tip: Ketik _G.teleportToIndex(1) untuk teleport manual")
