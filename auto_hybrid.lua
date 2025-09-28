@@ -1,5 +1,4 @@
--- Hybrid Auto Checkpoint + Spawn GUI
--- Deteksi otomatis semua spawn/checkpoint (nama bebas, tidak tergantung nama file)
+-- Auto Checkpoint dengan Delay
 -- By Zarukabot
 
 local Players = game:GetService("Players")
@@ -44,6 +43,7 @@ local lastCheckpoint = nil
 local lastSpawnCFrame = nil
 local checkpoints = {}
 local visited = {}
+local teleportDelay = 5 -- ⏳ Delay antar teleport (detik)
 
 -- Fungsi deteksi checkpoint otomatis
 local function detectCheckpoints()
@@ -72,14 +72,10 @@ local function detectCheckpoints()
 		end
 	end
 end
-
--- Jalankan deteksi awal
 detectCheckpoints()
-
--- Kalau ada part baru muncul di Workspace
 workspace.DescendantAdded:Connect(function(obj)
 	if obj:IsA("BasePart") then
-		task.wait(0.2) -- biar atribut sempat kebaca
+		task.wait(0.2)
 		detectCheckpoints()
 	end
 end)
@@ -94,7 +90,7 @@ local function getNextCheckpoint()
 	return nil
 end
 
--- Fungsi teleport balik (respawn ke terakhir)
+-- Teleport balik (kalau mati)
 local function teleportBack()
 	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 	local hrp = char:WaitForChild("HumanoidRootPart")
@@ -149,10 +145,10 @@ autoBtn.MouseButton1Click:Connect(function()
 						teleportToNextCheckpoint()
 					end
 				end
-				task.wait(2)
+				task.wait(teleportDelay) -- ⏳ Delay biar tidak spam teleport
 			end
 		end)
 	end
 end)
 
-print("✅ Auto Checkpoint/Spawn GUI Loaded")
+print("✅ Auto Checkpoint/Spawn GUI Loaded with Delay")
