@@ -1,4 +1,4 @@
--- 🚀 Admin Mount Visual
+-- 🚀 Admin Mount Visual + Title
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
@@ -44,11 +44,38 @@ local function createAdminAura()
     particle.Parent = attachment
 end
 
--- === FUNCTION: Buat Semua ===
+-- === FUNCTION: Buat Title di atas kepala ===
+local function createAdminTitle()
+    if char:FindFirstChild("AdminTitle") then return end
+
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "AdminTitle"
+    billboard.Adornee = head
+    billboard.Size = UDim2.new(0,200,0,50)
+    billboard.StudsOffset = Vector3.new(0,2.5,0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = head
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1,0,1,0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = "👑 Admin Mount"
+    textLabel.TextColor3 = Color3.fromRGB(255,0,255)
+    textLabel.TextStrokeTransparency = 0
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.TextScaled = true
+    textLabel.Parent = billboard
+end
+
+-- === FUNCTION: Aktifkan Semua ===
 local function enableAdminMountVisual()
     createAdminMount()
     createAdminAura()
-    print("✅ Admin Mount Visual activated!")
+    createAdminTitle()
+    print("✅ Admin Mount Visual + Title activated!")
 end
 
 -- Jalankan
