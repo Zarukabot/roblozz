@@ -1,19 +1,19 @@
--- Auto Start Teleport - Langsung jalan tanpa tombol
--- Script otomatis mulai teleport ke checkpoint yang belum disentuh
+-- Anti-Lag Auto Teleport - Smooth Performance
+-- Otomatis teleport ke checkpoint yang belum disentuh
 
-print("🚀 Loading Auto Start Teleport...")
+print("🚀 Loading Anti-Lag Auto Teleport...")
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 -- Variables
-local autoEnabled = true -- Langsung ON
-local mode = "Fly" -- Default mode Fly
+local autoEnabled = true
 local checkpoints = {}
 local touchedCheckpoints = {}
 
--- Setup touch detection untuk checkpoint
+-- Setup touch detection (optimized)
 local function setupTouchDetection(part)
     if part:GetAttribute("TouchSetup") then return end
     part:SetAttribute("TouchSetup", true)
@@ -23,14 +23,14 @@ local function setupTouchDetection(part)
         if character and Players:GetPlayerFromCharacter(character) == LocalPlayer then
             if not touchedCheckpoints[part] then
                 touchedCheckpoints[part] = true
-                print("✅ Checkpoint touched: " .. part.Name)
-                print("🎯 Remaining untouched: " .. getUntouchedCount())
+                print("✅ Checkpoint completed: " .. part.Name)
+                print("🎯 Remaining: " .. getUntouchedCount())
             end
         end
     end)
 end
 
--- Hitung checkpoint yang belum disentuh
+-- Count untouched checkpoints
 local function getUntouchedCount()
     local count = 0
     for _, cp in ipairs(checkpoints) do
@@ -41,7 +41,7 @@ local function getUntouchedCount()
     return count
 end
 
--- Cari checkpoint berikutnya yang belum disentuh
+-- Get next untouched checkpoint
 local function getNextUntouchedCheckpoint()
     for _, cp in ipairs(checkpoints) do
         if not touchedCheckpoints[cp] and cp.Parent then
@@ -51,32 +51,45 @@ local function getNextUntouchedCheckpoint()
     return nil
 end
 
--- Cari checkpoints
+-- Find checkpoints (Performance Optimized)
 local function findCheckpoints()
-    print("🔍 Scanning for checkpoints...")
+    print("🔍 Scanning workspace (performance mode)...")
     checkpoints = {}
     touchedCheckpoints = {}
     
+    local scannedCount = 0
+    local maxScan = 800 -- Reduced from 1000
+    
     for _, obj in pairs(workspace:GetDescendants()) do
+        if scannedCount >= maxScan then
+            print("⚠️  Scan limited for performance")
+            break
+        end
+        scannedCount = scannedCount + 1
+        
         if obj:IsA("BasePart") then
             local name = obj.Name:lower()
             
-            -- Cari berdasarkan nama
-            if name:find("checkpoint") or name:find("stage") or name:find("cp") or 
-               name:find("teleport") or name:find("spawn") or name:find("part") then
+            -- Only search for specific names
+            if name:find("checkpoint") or name:find("stage") or name:find("cp") then
                 table.insert(checkpoints, obj)
                 print("✅ Found: " .. obj.Name)
                 setupTouchDetection(obj)
             end
             
-            -- Atau berdasarkan attribute
+            -- Or by attribute
             if obj:GetAttribute("CheckpointId") then
                 if not table.find(checkpoints, obj) then
                     table.insert(checkpoints, obj)
-                    print("✅ Found (ID): " .. obj.Name .. " - ID:" .. obj:GetAttribute("CheckpointId"))
+                    print("✅ Found (ID): " .. obj.Name)
                     setupTouchDetection(obj)
                 end
             end
+        end
+        
+        -- Yield every 30 objects (reduced from 50)
+        if scannedCount % 30 == 0 then
+            RunService.Heartbeat:Wait()
         end
     end
     
@@ -92,37 +105,40 @@ local function findCheckpoints()
         end
     end)
     
-    print("📊 Total checkpoints found: " .. #checkpoints)
-    print("🎯 All checkpoints are untouched: " .. #checkpoints)
+    print("📊 Found " .. #checkpoints .. " checkpoints")
     return checkpoints
 end
 
--- Teleport ke checkpoint dengan mode Fly
-local function flyToCheckpoint(part)
+-- Smooth teleport function (Anti-Lag)
+local function smoothTeleport(part)
     local char = LocalPlayer.Character
-    if not char then 
-        print("❌ Character not found")
-        return false 
-    end
+    if not char then return false end
     
     local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then 
-        print("❌ HumanoidRootPart not found")
-        return false 
-    end
+    if not hrp then return false end
     
-    print("✈️ Flying to: " .. part.Name)
+    print("✈️ Smooth flying to: " .. part.Name)
     
-    local targetPos = part.Position + Vector3.new(0, 5, 0)
+    local targetPos = part.Position + Vector3.new(0, 6, 0) -- Higher for safety
     local distance = (hrp.Position - targetPos).Magnitude
-    local speed = 100 -- studs per second
-    local duration = math.max(0.1, distance / speed)
     
-    print("🚀 Flying " .. math.floor(distance) .. " studs in " .. math.floor(duration*10)/10 .. "s")
+    -- Very smooth settings
+    local speed = 40 -- Even slower for ultra-smooth
+    local duration = math.max(1, distance / speed) -- Minimum 1 second
     
+    print("🛸 Distance: " .. math.floor(distance) .. " studs | Time: " .. math.floor(duration*10)/10 .. "s")
+    
+    -- Ultra-smooth tween
     local tween = TweenService:Create(
         hrp,
-        TweenInfo.new(duration, Enum.EasingStyle.Linear),
+        TweenInfo.new(
+            duration, 
+            Enum.EasingStyle.Sine, -- Very smooth easing
+            Enum.EasingDirection.InOut,
+            0, -- No repeat
+            false, -- No reverse
+            0 -- No delay
+        ),
         {CFrame = CFrame.new(targetPos)}
     )
     
@@ -131,126 +147,158 @@ local function flyToCheckpoint(part)
     return true
 end
 
--- Main auto loop - Jalan terus otomatis
-local function startAutoTeleport()
-    print("🔥 AUTO TELEPORT STARTED!")
-    print("🎯 Mode: FLY (100 studs/second)")
-    print("✨ Script will automatically teleport to untouched checkpoints")
+-- Main auto loop (Ultra Anti-Lag)
+local function startSmoothTeleport()
+    print("🎯 SMOOTH AUTO TELEPORT STARTED!")
+    print("🐌 Ultra-smooth mode: 40 studs/sec")
+    print("✨ Maximum performance optimization")
     
     spawn(function()
         while autoEnabled do
             local nextCheckpoint = getNextUntouchedCheckpoint()
             
             if not nextCheckpoint then
-                print("🎉 ALL CHECKPOINTS COMPLETED!")
-                print("✅ Mission accomplished! No more untouched checkpoints")
+                print("🎉 MISSION COMPLETE!")
+                print("✅ All checkpoints conquered!")
                 autoEnabled = false
                 break
             end
             
-            local checkpointIndex = table.find(checkpoints, nextCheckpoint) or 0
-            print("🎯 Target: Checkpoint " .. checkpointIndex .. "/" .. #checkpoints .. " - " .. nextCheckpoint.Name)
+            local index = table.find(checkpoints, nextCheckpoint) or 0
+            local remaining = getUntouchedCount()
             
-            local success = flyToCheckpoint(nextCheckpoint)
+            print("🎯 Next: " .. nextCheckpoint.Name .. " (" .. (index) .. "/" .. #checkpoints .. ")")
+            print("📊 Progress: " .. (#checkpoints - remaining) .. "/" .. #checkpoints .. " done")
+            
+            local success = smoothTeleport(nextCheckpoint)
+            
             if success then
-                wait(1) -- Wait for touch detection
+                print("✅ Teleport successful!")
                 
-                -- Force mark as touched if not detected
+                -- Wait for touch registration
+                wait(2.5) -- Longer wait
+                
+                -- Force mark if needed
                 if not touchedCheckpoints[nextCheckpoint] then
-                    print("⚠️  Force marking as touched")
+                    print("🔧 Auto-marking checkpoint as completed")
                     touchedCheckpoints[nextCheckpoint] = true
                 end
                 
-                wait(1.5) -- Delay before next teleport
+                -- Long delay between teleports for stability
+                print("⏳ Waiting 4 seconds before next teleport...")
+                wait(4)
+                
             else
-                print("❌ Teleport failed, retrying...")
-                wait(2)
+                print("❌ Teleport failed, waiting 6 seconds...")
+                wait(6)
             end
             
-            -- Progress update
-            local remaining = getUntouchedCount()
-            if remaining > 0 then
-                print("📊 Progress: " .. (#checkpoints - remaining) .. "/" .. #checkpoints .. " completed")
-            end
+            -- Extra yield for performance
+            RunService.Heartbeat:Wait()
+            RunService.Heartbeat:Wait()
         end
         
-        print("🛑 Auto teleport finished")
+        print("🏁 Auto teleport completed successfully!")
     end)
 end
 
--- Tunggu character spawn
+-- Wait for character (with timeout)
 local function waitForCharacter()
-    print("⏳ Waiting for character to spawn...")
-    if not LocalPlayer.Character then
-        LocalPlayer.CharacterAdded:Wait()
+    print("⏳ Waiting for character...")
+    local timeOut = 0
+    
+    while not LocalPlayer.Character and timeOut < 30 do
+        wait(0.5)
+        timeOut = timeOut + 0.5
     end
-    wait(2) -- Extra wait for full character load
-    print("✅ Character ready!")
+    
+    if LocalPlayer.Character then
+        wait(3) -- Extra wait for full load
+        print("✅ Character ready!")
+        return true
+    else
+        print("❌ Character spawn timeout!")
+        return false
+    end
 end
 
--- Main execution
-print("🚀 INITIALIZING AUTO TELEPORT...")
+-- === MAIN EXECUTION ===
+print("🚀 INITIALIZING ULTRA-SMOOTH TELEPORT...")
 
 -- Wait for character
-waitForCharacter()
+if not waitForCharacter() then
+    print("❌ Failed to initialize - character not found")
+    return
+end
 
 -- Find checkpoints
 findCheckpoints()
 
--- Start auto teleport if checkpoints found
+-- Start if checkpoints found
 if #checkpoints > 0 then
-    print("🎮 AUTO TELEPORT WILL START IN 3 SECONDS...")
-    wait(1)
-    print("3...")
-    wait(1)
-    print("2...")
-    wait(1)
-    print("1...")
-    print("🚀 GO!")
+    print("🎮 ULTRA-SMOOTH TELEPORT STARTING IN 5 SECONDS...")
+    print("⚡ Anti-lag optimizations active")
+    print("🐌 Speed: 40 studs/sec (ultra-smooth)")
+    print("⏱️  Delays: 4 seconds between teleports")
     
-    startAutoTeleport()
+    for i = 5, 1, -1 do
+        print(i .. "...")
+        wait(1)
+    end
+    
+    print("🚀 LAUNCHING SMOOTH TELEPORT!")
+    startSmoothTeleport()
+    
 else
-    print("❌ No checkpoints found!")
-    print("💡 Make sure there are parts named with:")
-    print("   - checkpoint, stage, cp, teleport, spawn, part")
-    print("   - Or parts with CheckpointId attribute")
+    print("❌ No checkpoints detected!")
+    print("💡 Looking for parts named: checkpoint, stage, cp")
+    print("💡 Or parts with CheckpointId attribute")
 end
 
--- Global functions untuk control manual
-_G.stopAuto = function()
+-- Control functions
+_G.stopTeleport = function()
     autoEnabled = false
-    print("🛑 Auto teleport stopped manually")
+    print("🛑 Smooth teleport stopped")
 end
 
-_G.startAuto = function()
+_G.startTeleport = function()
     if not autoEnabled then
         autoEnabled = true
-        startAutoTeleport()
+        startSmoothTeleport()
     else
-        print("⚠️  Auto teleport already running")
+        print("⚠️  Teleport already running")
     end
 end
 
-_G.listCheckpoints = function()
-    print("📋 Checkpoint Status:")
+_G.checkStatus = function()
+    print("📊 STATUS REPORT:")
+    print("   Running: " .. (autoEnabled and "✅ YES" or "❌ NO"))
+    print("   Checkpoints: " .. #checkpoints)
+    print("   Completed: " .. (#checkpoints - getUntouchedCount()))
+    print("   Remaining: " .. getUntouchedCount())
+end
+
+_G.listAll = function()
+    print("📋 ALL CHECKPOINTS:")
     for i, cp in ipairs(checkpoints) do
-        local status = touchedCheckpoints[cp] and "✅ TOUCHED" or "❌ UNTOUCHED"
-        print(i .. ". " .. cp.Name .. " - " .. status)
+        local status = touchedCheckpoints[cp] and "✅ DONE" or "❌ TODO"
+        print("   " .. i .. ". " .. cp.Name .. " - " .. status)
     end
-    print("🎯 Untouched: " .. getUntouchedCount() .. "/" .. #checkpoints)
 end
 
-_G.resetProgress = function()
+_G.resetAll = function()
     touchedCheckpoints = {}
-    print("🔄 Progress reset! All checkpoints now untouched")
+    print("🔄 All progress reset!")
 end
 
-print("\n📝 === AUTO TELEPORT ACTIVE ===")
-print("✨ Script runs automatically - no keys needed!")
-print("🎯 Only teleports to untouched checkpoints")
-print("💡 Commands available:")
-print("   _G.stopAuto() - Stop teleport")
-print("   _G.startAuto() - Restart teleport")  
-print("   _G.listCheckpoints() - Show status")
-print("   _G.resetProgress() - Reset progress")
-print("🚀 Auto teleport is now running!")
+print("\n📝 === ULTRA-SMOOTH TELEPORT ACTIVE ===")
+print("🐌 Speed optimized for zero lag")
+print("⏱️  4-second delays between teleports")
+print("🛸 Smooth sine-wave movement")
+print("\n💡 Available commands:")
+print("   _G.stopTeleport() - Stop script")
+print("   _G.startTeleport() - Restart script")
+print("   _G.checkStatus() - View progress")
+print("   _G.listAll() - List all checkpoints")
+print("   _G.resetAll() - Reset progress")
+print("\n🚀 Ultra-smooth teleport is running!")
