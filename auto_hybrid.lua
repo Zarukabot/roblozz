@@ -1,4 +1,5 @@
--- Auto Checkpoint dengan Delay
+-- Hybrid Auto Checkpoint + Spawn GUI
+-- Auto teleport ke checkpoint berikutnya yang belum dikunjungi
 -- By Zarukabot
 
 local Players = game:GetService("Players")
@@ -12,7 +13,7 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = PlayerGui
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 200, 0, 100)
+frame.Size = UDim2.new(0, 220, 0, 140)
 frame.Position = UDim2.new(0.7, 0, 0.2, 0)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.BackgroundTransparency = 0.2
@@ -21,7 +22,7 @@ frame.Draggable = true
 frame.Parent = screenGui
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0.3, 0)
+title.Size = UDim2.new(1, 0, 0.2, 0)
 title.BackgroundTransparency = 1
 title.Text = "Auto Checkpoint"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -29,126 +30,86 @@ title.TextScaled = true
 title.Parent = frame
 
 local autoBtn = Instance.new("TextButton")
-autoBtn.Size = UDim2.new(0.8, 0, 0.4, 0)
-autoBtn.Position = UDim2.new(0.1, 0, 0.45, 0)
+autoBtn.Size = UDim2.new(0.8, 0, 0.25, 0)
+autoBtn.Position = UDim2.new(0.1, 0, 0.25, 0)
 autoBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 autoBtn.TextScaled = true
 autoBtn.Text = "Auto: OFF"
 autoBtn.Parent = frame
 
+local delayBox = Instance.new("TextBox")
+delayBox.Size = UDim2.new(0.8, 0, 0.25, 0)
+delayBox.Position = UDim2.new(0.1, 0, 0.55, 0)
+delayBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+delayBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+delayBox.TextScaled = true
+delayBox.Text = "5" -- default delay detik
+delayBox.Parent = frame
+
 -- Variabel
 local autoEnabled = false
-local lastCheckpoint = nil
-local lastSpawnCFrame = nil
 local checkpoints = {}
 local visited = {}
-local teleportDelay = 5 -- ⏳ Delay antar teleport (detik)
+local currentIndex = 1
 
--- Fungsi deteksi checkpoint otomatis
-local function detectCheckpoints()
-	for _, part in ipairs(workspace:GetDescendants()) do
-		if part:IsA("BasePart") then
-			local nameLower = string.lower(part.Name)
-			if part:GetAttribute("CheckpointId")
-				or part:IsA("SpawnLocation")
-				or string.find(nameLower, "checkpoint")
-				or string.find(nameLower, "spawn")
-			then
-				if not table.find(checkpoints, part) then
-					table.insert(checkpoints, part)
-
-					-- Listener saat tersentuh manual
-					part.Touched:Connect(function(hit)
-						local char = hit.Parent
-						if char and Players:GetPlayerFromCharacter(char) == LocalPlayer then
-							lastCheckpoint = part
-							visited[part] = true
-							print("✅ Checkpoint tersentuh:", part.Name)
-						end
-					end)
-				end
-			end
-		end
+-- Cari checkpoint otomatis
+for _, obj in ipairs(workspace:GetDescendants()) do
+	if obj:IsA("BasePart") and (obj.Name:lower():find("checkpoint") or obj:GetAttribute("CheckpointId")) then
+		table.insert(checkpoints, obj)
 	end
 end
-detectCheckpoints()
-workspace.DescendantAdded:Connect(function(obj)
-	if obj:IsA("BasePart") then
-		task.wait(0.2)
-		detectCheckpoints()
-	end
+
+-- Sort checkpoint biar urut posisinya (opsional)
+table.sort(checkpoints, function(a,b)
+	return a.Position.Magnitude < b.Position.Magnitude
 end)
 
--- Cari checkpoint berikutnya yang belum
-local function getNextCheckpoint()
-	for _, cp in ipairs(checkpoints) do
-		if not visited[cp] then
-			return cp
+-- Tandai visited saat disentuh
+for i, part in ipairs(checkpoints) do
+	part.Touched:Connect(function(hit)
+		local char = hit.Parent
+		if char and Players:GetPlayerFromCharacter(char) == LocalPlayer then
+			visited[i] = true
+			print("Checkpoint ke-"..i.." tersentuh!")
 		end
-	end
-	return nil
+	end)
 end
 
--- Teleport balik (kalau mati)
-local function teleportBack()
+-- Fungsi teleport
+local function teleportTo(part)
 	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 	local hrp = char:WaitForChild("HumanoidRootPart")
-	if lastCheckpoint then
-		hrp.CFrame = CFrame.new(lastCheckpoint.Position + Vector3.new(0, 3, 0))
-	elseif lastSpawnCFrame then
-		hrp.CFrame = lastSpawnCFrame
+	hrp.CFrame = part.CFrame + Vector3.new(0, 3, 0)
+end
+
+-- Loop auto
+local function autoLoop()
+	while autoEnabled do
+		local delayTime = tonumber(delayBox.Text) or 5
+
+		-- Cari checkpoint berikutnya yang belum
+		for i = currentIndex, #checkpoints do
+			if not visited[i] then
+				currentIndex = i
+				print("Teleport ke checkpoint "..i)
+				teleportTo(checkpoints[i])
+				break
+			end
+		end
+
+		task.wait(delayTime)
 	end
 end
 
--- Teleport ke checkpoint berikutnya
-local function teleportToNextCheckpoint()
-	local cp = getNextCheckpoint()
-	if cp then
-		local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-		local hrp = char:WaitForChild("HumanoidRootPart")
-		hrp.CFrame = cp.CFrame + Vector3.new(0, 3, 0)
-		visited[cp] = true
-		print("➡️ Auto teleport ke:", cp.Name)
-	else
-		print("🏁 Semua checkpoint sudah selesai!")
-	end
-end
-
--- Update spawn default
-local function onCharacterAdded(char)
-	task.wait(0.5)
-	local hrp = char:WaitForChild("HumanoidRootPart")
-	lastSpawnCFrame = hrp.CFrame + Vector3.new(0, 3, 0)
-end
-LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
-if LocalPlayer.Character then
-	onCharacterAdded(LocalPlayer.Character)
-end
-
--- Toggle Auto Button
+-- Toggle button
 autoBtn.MouseButton1Click:Connect(function()
 	autoEnabled = not autoEnabled
 	autoBtn.Text = autoEnabled and "Auto: ON" or "Auto: OFF"
 
 	if autoEnabled then
-		task.spawn(function()
-			while autoEnabled do
-				local char = LocalPlayer.Character
-				if char then
-					local hum = char:FindFirstChildOfClass("Humanoid")
-					if hum and hum.Health <= 0 then
-						LocalPlayer.CharacterAdded:Wait()
-						task.wait(0.5)
-						teleportBack()
-					else
-						teleportToNextCheckpoint()
-					end
-				end
-				task.wait(teleportDelay) -- ⏳ Delay biar tidak spam teleport
-			end
-		end)
+		task.spawn(autoLoop)
 	end
 end)
 
-print("✅ Auto Checkpoint/Spawn GUI Loaded with Delay")
+print("✅ Hybrid Auto Teleport Next Unvisited Checkpoint Loaded")
