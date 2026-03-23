@@ -10,9 +10,9 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ModernTeleportGui"
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- Main Frame
+-- Main Frame (RESPONSIVE)
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0,0,0,0)
+Frame.Size = UDim2.new(0.9,0,0.75,0) -- responsive mobile
 Frame.Position = UDim2.new(0.5,0,0.5,0)
 Frame.AnchorPoint = Vector2.new(0.5,0.5)
 Frame.BackgroundColor3 = Color3.fromRGB(30,30,35)
@@ -21,23 +21,8 @@ Frame.Parent = ScreenGui
 
 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,16)
 
--- Open animation awal
-TweenService:Create(Frame,TweenInfo.new(0.4,Enum.EasingStyle.Back),{
-	Size = UDim2.new(0,360,0,500)
-}):Play()
-
--- Floating Open Button
-local OpenButton = Instance.new("TextButton")
-OpenButton.Size = UDim2.new(0,50,0,50)
-OpenButton.Position = UDim2.new(0,20,0.5,-25)
-OpenButton.Text = "+"
-OpenButton.Font = Enum.Font.GothamBold
-OpenButton.TextSize = 24
-OpenButton.TextColor3 = Color3.new(1,1,1)
-OpenButton.BackgroundColor3 = Color3.fromRGB(70,120,255)
-OpenButton.Visible = false
-OpenButton.Parent = ScreenGui
-Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(1,0)
+Frame.Active = true
+Frame.Draggable = true
 
 -- Title
 local Title = Instance.new("TextLabel")
@@ -45,7 +30,7 @@ Title.Size = UDim2.new(1,-50,0,50)
 Title.Position = UDim2.new(0,20,0,10)
 Title.Text = "Teleport To Player"
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 20
+Title.TextSize = 18
 Title.TextColor3 = Color3.new(1,1,1)
 Title.BackgroundTransparency = 1
 Title.Parent = Frame
@@ -54,9 +39,9 @@ Title.Parent = Frame
 local Close = Instance.new("TextButton")
 Close.Size = UDim2.new(0,35,0,35)
 Close.Position = UDim2.new(1,-45,0,15)
-Close.Text = "✕"
+Close.Text = "–"
 Close.Font = Enum.Font.GothamBold
-Close.TextSize = 18
+Close.TextSize = 20
 Close.TextColor3 = Color3.new(1,1,1)
 Close.BackgroundColor3 = Color3.fromRGB(200,50,50)
 Close.Parent = Frame
@@ -93,9 +78,6 @@ UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 	Scroll.CanvasSize = UDim2.new(0,0,0,UIListLayout.AbsoluteContentSize.Y+10)
 end)
 
-Frame.Active = true
-Frame.Draggable = true
-
 -- Teleport
 local function teleportToPlayer(targetPlayer)
 	if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -122,24 +104,13 @@ local function refreshList()
 				Button.Size = UDim2.new(1,0,0,45)
 				Button.Text = player.Name
 				Button.Font = Enum.Font.Gotham
-				Button.TextSize = 15
+				Button.TextSize = 14
 				Button.TextColor3 = Color3.new(1,1,1)
 				Button.BackgroundColor3 = Color3.fromRGB(50,50,60)
 				Button.BorderSizePixel = 0
 				Button.Parent = Scroll
 				
 				Instance.new("UICorner", Button).CornerRadius = UDim.new(0,12)
-
-				Button.MouseEnter:Connect(function()
-					TweenService:Create(Button,TweenInfo.new(0.15),{
-						BackgroundColor3 = Color3.fromRGB(70,70,90)
-					}):Play()
-				end)
-				Button.MouseLeave:Connect(function()
-					TweenService:Create(Button,TweenInfo.new(0.15),{
-						BackgroundColor3 = Color3.fromRGB(50,50,60)
-					}):Play()
-				end)
 
 				Button.MouseButton1Click:Connect(function()
 					teleportToPlayer(player)
@@ -153,31 +124,30 @@ SearchBox:GetPropertyChangedSignal("Text"):Connect(refreshList)
 Players.PlayerAdded:Connect(refreshList)
 Players.PlayerRemoving:Connect(refreshList)
 
--- OPEN
-local function openGUI()
-	if isOpen then return end
-	isOpen = true
-	Frame.Visible = true
-	TweenService:Create(Frame,TweenInfo.new(0.3,Enum.EasingStyle.Back),{
-		Size = UDim2.new(0,360,0,500)
-	}):Play()
-	OpenButton.Visible = false
-end
-
--- CLOSE
+-- MINI MODE (toggle kecil bawah tengah)
 local function closeGUI()
 	if not isOpen then return end
 	isOpen = false
-	local tween = TweenService:Create(Frame,TweenInfo.new(0.25,Enum.EasingStyle.Quad),{
-		Size = UDim2.new(0,0,0,0)
-	})
-	tween:Play()
-	tween.Completed:Wait()
-	Frame.Visible = false
-	OpenButton.Visible = true
+	
+	TweenService:Create(Frame,TweenInfo.new(0.3,Enum.EasingStyle.Quad),{
+		Size = UDim2.new(0.4,0,0.08,0),
+		Position = UDim2.new(0.5,0,0.92,0)
+	}):Play()
 end
 
--- Keyboard Control
+local function openGUI()
+	if isOpen then return end
+	isOpen = true
+	
+	TweenService:Create(Frame,TweenInfo.new(0.3,Enum.EasingStyle.Back),{
+		Size = UDim2.new(0.9,0,0.75,0),
+		Position = UDim2.new(0.5,0,0.5,0)
+	}):Play()
+end
+
+-- Controls
+Close.MouseButton1Click:Connect(closeGUI)
+
 UserInputService.InputBegan:Connect(function(input,gp)
 	if gp then return end
 	
@@ -190,8 +160,10 @@ UserInputService.InputBegan:Connect(function(input,gp)
 	end
 end)
 
--- Button Control
-Close.MouseButton1Click:Connect(closeGUI)
-OpenButton.MouseButton1Click:Connect(openGUI)
+Frame.InputBegan:Connect(function(input)
+	if not isOpen and input.UserInputType == Enum.UserInputType.MouseButton1 then
+		openGUI()
+	end
+end)
 
-refreshList() 
+refreshList()
