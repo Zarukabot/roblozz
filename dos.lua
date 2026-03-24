@@ -1,146 +1,96 @@
 --// SERVICES
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 local DataStoreService = game:GetService("DataStoreService")
 
-local FishDataStore = DataStoreService:GetDataStore("FishInventory")
+local VIPDataStore = DataStoreService:GetDataStore("VIPStatus")
 
 --// CONFIG
-local FISH_FOLDER_NAME = "FishSpawn" -- semua fish yang ada di server (workspace)
-local ROD_NAME = "FishingRod"
-local AUTO_CATCH_DELAY = 0.1 -- delay kecil supaya server tidak lag
-local ULTRA_SPEED_MODE = false
+local VIP_DEFAULT = false -- default player tidak VIP
+local VIP_BENEFIT = {
+    WalkSpeed = 50,   -- contoh benefit
+    JumpPower = 100,
+    ExtraCoins = 500
+}
 
 --// FUNCTIONS
-local function collectAllFishFromServer(player)
-    local fishFolder = workspace:FindFirstChild(FISH_FOLDER_NAME)
-    if not fishFolder then return {} end
-
-    local inventory = player:FindFirstChild("Inventory")
-    if not inventory then
-        inventory = Instance.new("Folder")
-        inventory.Name = "Inventory"
-        inventory.Parent = player
-    end
-
-    local collected = {}
-
-    for _, fish in pairs(fishFolder:GetChildren()) do
-        if fish:IsA("BasePart") or fish:IsA("Model") then
-            local name = fish.Name
-            if inventory:FindFirstChild(name) then
-                inventory[name].Value += 1
-            else
-                local value = Instance.new("IntValue")
-                value.Name = name
-                value.Value = 1
-                value.Parent = inventory
-            end
-            table.insert(collected, name)
-            fish:Destroy()
+local function giveVIP(player)
+    player:SetAttribute("VIP", true)
+    -- bisa langsung beri benefit
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = VIP_BENEFIT.WalkSpeed
+            humanoid.JumpPower = VIP_BENEFIT.JumpPower
         end
     end
-
-    return collected
+    -- simpan ke DataStore
+    pcall(function()
+        VIPDataStore:SetAsync(player.UserId, true)
+    end)
 end
 
-local function setupPlayer(player)
-    -- Inventory
-    local inventory = {}
-    player:SetAttribute("FishCount",0)
-
-    -- Load DataStore
-    local success, data = pcall(function()
-        return FishDataStore:GetAsync(player.UserId)
-    end)
-    if success and data then
-        inventory = data
-        local total = 0
-        for _,v in pairs(inventory) do total += v end
-        player:SetAttribute("FishCount",total)
+local function removeVIP(player)
+    player:SetAttribute("VIP", false)
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = 16 -- default
+            humanoid.JumpPower = 50 -- default
+        end
     end
+    -- hapus dari DataStore
+    pcall(function()
+        VIPDataStore:SetAsync(player.UserId, false)
+    end)
+end
 
-    -- GUI
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "FishingGUI"
-    gui.Parent = player:WaitForChild("PlayerGui")
-    gui.ResetOnSpawn = false
+local function checkVIP(player)
+    -- cek DataStore
+    local success, value = pcall(function()
+        return VIPDataStore:GetAsync(player.UserId)
+    end)
+    if success and value then
+        giveVIP(player)
+    else
+        player:SetAttribute("VIP", VIP_DEFAULT)
+    end
+end
 
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0,300,0,200)
-    frame.Position = UDim2.new(0.05,0,0.05,0)
-    frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
-    frame.Parent = gui
-    frame.Active = true
-    frame.Draggable = true
-    Instance.new("UICorner",frame).CornerRadius = UDim.new(0,12)
+--// PLAYER HANDLER
+Players.PlayerAdded:Connect(function(player)
+    -- cek VIP saat join
+    checkVIP(player)
 
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1,0,0,30)
-    title.Position = UDim2.new(0,0,0,0)
-    title.BackgroundTransparency = 1
-    title.Text = "🎣 FISHING INVENTORY"
-    title.TextColor3 = Color3.fromRGB(255,255,255)
-    title.TextScaled = true
-    title.Parent = frame
-
-    local counterLabel = Instance.new("TextLabel")
-    counterLabel.Size = UDim2.new(1,0,0,40)
-    counterLabel.Position = UDim2.new(0,0,0.7,0)
-    counterLabel.BackgroundTransparency = 1
-    counterLabel.TextColor3 = Color3.fromRGB(255,255,255)
-    counterLabel.TextScaled = true
-    counterLabel.Text = "Fish Collected: "..player:GetAttribute("FishCount")
-    counterLabel.Parent = frame
-
-    -- Detect equip rod
+    -- kalau karakter spawn lagi
     player.CharacterAdded:Connect(function(char)
-        local hrp = char:WaitForChild("HumanoidRootPart")
-        char.ChildAdded:Connect(function(child)
-            if child:IsA("Tool") and child.Name == ROD_NAME then
-                task.spawn(function()
-                    while child.Parent == char do
-                        task.wait(AUTO_CATCH_DELAY / (ULTRA_SPEED_MODE and 3 or 1))
-
-                        -- Ambil semua fish yang ada di server
-                        local collected = collectAllFishFromServer(player)
-
-                        -- Update counter
-                        local total = 0
-                        for _,v in pairs(player.Inventory:GetChildren()) do
-                            total += v.Value
-                        end
-                        player:SetAttribute("FishCount",total)
-                        counterLabel.Text = "Fish Collected: "..total
-
-                        -- Optional: sound effect
-                        local sound = Instance.new("Sound")
-                        sound.SoundId = "rbxassetid://12222225"
-                        sound.Volume = 1
-                        sound.Parent = hrp
-                        sound:Play()
-                        game.Debris:AddItem(sound,2)
-                    end
-                end)
-            end
-        end)
-    end)
-
-    -- Auto save tiap 30 detik
-    task.spawn(function()
-        while player.Parent do
-            task.wait(30)
-            pcall(function()
-                FishDataStore:SetAsync(player.UserId, player.Inventory:GetChildren())
-            end)
+        if player:GetAttribute("VIP") then
+            local humanoid = char:WaitForChild("Humanoid")
+            humanoid.WalkSpeed = VIP_BENEFIT.WalkSpeed
+            humanoid.JumpPower = VIP_BENEFIT.JumpPower
         end
     end)
+end)
+
+--// COMMAND EXAMPLE (Developer only)
+local function onCommand(player, cmd)
+    if player.UserId == game.CreatorId then
+        local split = string.split(cmd, " ")
+        if split[1] == "vip" then
+            local targetName = split[2]
+            local action = split[3] -- add/remove
+            local target = Players:FindFirstChild(targetName)
+            if target then
+                if action == "add" then
+                    giveVIP(target)
+                elseif action == "remove" then
+                    removeVIP(target)
+                end
+            end
+        end
+    end
 end
 
--- Setup semua player
-for _,p in pairs(Players:GetPlayers()) do
-    setupPlayer(p)
-end
-Players.PlayerAdded:Connect(setupPlayer)
+-- Contoh pemakaian: Developer ketik chat "/vip PlayerName add" atau "/vip PlayerName remove"
+game.Players.PlayerChatted:Connect(onCommand)
