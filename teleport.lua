@@ -1222,23 +1222,3 @@ end)
 MiniButton.MouseButton1Click:Connect(function()
     Frame.Visible = true; MiniButton.Visible = false
 end)
-```
-
----
-
-Alur loop yang terjadi sekarang:
-```
-🔁 Toggle ON
-  ↓
-Loop #1:
-  📍 Teleport posisi awal
-  🖱 Klik NPC (fireclickdetector)
-  🔘 Klik "Talk" / pilihan dialog
-  🔘 Klik pilihan berikutnya...
-  [kado muncul di tangan]
-  ⏳ Tunggu tool hilang dari tangan...
-  ✅ Tool hilang = kado diserahkan
-  ↓ jeda 1.5 detik
-Loop #2: ulangi dari awal...
-  ↓
-🔁 Toggle OFF → berhenti setelah loop selesai
