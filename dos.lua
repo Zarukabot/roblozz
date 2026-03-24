@@ -8,25 +8,42 @@ local DataStoreService = game:GetService("DataStoreService")
 local FishDataStore = DataStoreService:GetDataStore("FishInventory")
 
 --// CONFIG
-local FISH_LIST = {
-    {Name = "Common Fish", Rarity = 60},
-    {Name = "Rare Fish", Rarity = 30},
-    {Name = "Legendary Fish", Rarity = 10}
-}
-local AUTO_CATCH_DELAY = 0.5 -- detik
+local FISH_FOLDER_NAME = "FishSpawn" -- semua fish yang ada di server (workspace)
+local ROD_NAME = "FishingRod"
+local AUTO_CATCH_DELAY = 0.1 -- delay kecil supaya server tidak lag
 local ULTRA_SPEED_MODE = false
 
 --// FUNCTIONS
-local function getRandomFish()
-    local total = 0
-    for _, fish in pairs(FISH_LIST) do total += fish.Rarity end
-    local roll = math.random(1, total)
-    local cumulative = 0
-    for _, fish in pairs(FISH_LIST) do
-        cumulative += fish.Rarity
-        if roll <= cumulative then return fish.Name end
+local function collectAllFishFromServer(player)
+    local fishFolder = workspace:FindFirstChild(FISH_FOLDER_NAME)
+    if not fishFolder then return {} end
+
+    local inventory = player:FindFirstChild("Inventory")
+    if not inventory then
+        inventory = Instance.new("Folder")
+        inventory.Name = "Inventory"
+        inventory.Parent = player
     end
-    return FISH_LIST[1].Name
+
+    local collected = {}
+
+    for _, fish in pairs(fishFolder:GetChildren()) do
+        if fish:IsA("BasePart") or fish:IsA("Model") then
+            local name = fish.Name
+            if inventory:FindFirstChild(name) then
+                inventory[name].Value += 1
+            else
+                local value = Instance.new("IntValue")
+                value.Name = name
+                value.Value = 1
+                value.Parent = inventory
+            end
+            table.insert(collected, name)
+            fish:Destroy()
+        end
+    end
+
+    return collected
 end
 
 local function setupPlayer(player)
@@ -34,7 +51,7 @@ local function setupPlayer(player)
     local inventory = {}
     player:SetAttribute("FishCount",0)
 
-    -- Load from DataStore
+    -- Load DataStore
     local success, data = pcall(function()
         return FishDataStore:GetAsync(player.UserId)
     end)
@@ -45,7 +62,7 @@ local function setupPlayer(player)
         player:SetAttribute("FishCount",total)
     end
 
-    -- Inventory GUI
+    -- GUI
     local gui = Instance.new("ScreenGui")
     gui.Name = "FishingGUI"
     gui.Parent = player:WaitForChild("PlayerGui")
@@ -78,34 +95,29 @@ local function setupPlayer(player)
     counterLabel.Text = "Fish Collected: "..player:GetAttribute("FishCount")
     counterLabel.Parent = frame
 
-    -- Equip Rod Detection
+    -- Detect equip rod
     player.CharacterAdded:Connect(function(char)
-        local humanoid = char:WaitForChild("Humanoid")
         local hrp = char:WaitForChild("HumanoidRootPart")
-
         char.ChildAdded:Connect(function(child)
-            if child:IsA("Tool") and child.Name == "FishingRod" then
+            if child:IsA("Tool") and child.Name == ROD_NAME then
                 task.spawn(function()
                     while child.Parent == char do
                         task.wait(AUTO_CATCH_DELAY / (ULTRA_SPEED_MODE and 3 or 1))
-                        local fishName = getRandomFish()
 
-                        -- Update inventory
-                        if inventory[fishName] then
-                            inventory[fishName] += 1
-                        else
-                            inventory[fishName] = 1
-                        end
+                        -- Ambil semua fish yang ada di server
+                        local collected = collectAllFishFromServer(player)
 
                         -- Update counter
                         local total = 0
-                        for _,v in pairs(inventory) do total += v end
+                        for _,v in pairs(player.Inventory:GetChildren()) do
+                            total += v.Value
+                        end
                         player:SetAttribute("FishCount",total)
                         counterLabel.Text = "Fish Collected: "..total
 
-                        -- Sound effect
+                        -- Optional: sound effect
                         local sound = Instance.new("Sound")
-                        sound.SoundId = "rbxassetid://12222225" -- ganti ID sound
+                        sound.SoundId = "rbxassetid://12222225"
                         sound.Volume = 1
                         sound.Parent = hrp
                         sound:Play()
@@ -116,18 +128,18 @@ local function setupPlayer(player)
         end)
     end)
 
-    -- Auto save inventory tiap 30 detik
+    -- Auto save tiap 30 detik
     task.spawn(function()
         while player.Parent do
             task.wait(30)
             pcall(function()
-                FishDataStore:SetAsync(player.UserId, inventory)
+                FishDataStore:SetAsync(player.UserId, player.Inventory:GetChildren())
             end)
         end
     end)
 end
 
--- Setup existing and new players
+-- Setup semua player
 for _,p in pairs(Players:GetPlayers()) do
     setupPlayer(p)
 end
