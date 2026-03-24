@@ -9,7 +9,7 @@ local RunService = game:GetService("RunService")
 local player     = Players.LocalPlayer
 
 --// ⚠️ GANTI INI
-local ADMIN_NAME = "NamaKamuDisini"
+local ADMIN_NAME = "Ryuzooaja"
 
 if player.Name ~= ADMIN_NAME then
     warn("Bukan admin, script berhenti.")
