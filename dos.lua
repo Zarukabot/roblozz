@@ -6,13 +6,13 @@ local player = Players.LocalPlayer
 
 --// GUI
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-gui.Name = "ManualStressTester"
+gui.Name = "ExtremeStressTester"
 gui.ResetOnSpawn = false
 
 local main = Instance.new("Frame", gui)
-main.Size = UDim2.new(0, 340, 0, 500)
-main.Position = UDim2.new(0.5, -170, 0.5, -250)
-main.BackgroundColor3 = Color3.fromRGB(18,18,18)
+main.Size = UDim2.new(0, 360, 0, 540)
+main.Position = UDim2.new(0.5, -180, 0.5, -270)
+main.BackgroundColor3 = Color3.fromRGB(15,15,15)
 main.Active = true
 main.Draggable = true
 Instance.new("UICorner", main).CornerRadius = UDim.new(0,10)
@@ -21,7 +21,7 @@ Instance.new("UICorner", main).CornerRadius = UDim.new(0,10)
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.new(1,0,0,40)
 title.BackgroundTransparency = 1
-title.Text = "🔥 Manual Stress Tester"
+title.Text = "🔥 EXTREME Stress Tester"
 title.TextColor3 = Color3.fromRGB(0,255,255)
 title.Font = Enum.Font.GothamBold
 title.TextScaled = true
@@ -41,66 +41,81 @@ memLabel.Parent = main
 memLabel.Position = UDim2.new(0,10,0,70)
 memLabel.TextColor3 = Color3.fromRGB(255,200,0)
 
--- INPUT: Amount
-local amountBox = Instance.new("TextBox", main)
-amountBox.Position = UDim2.new(0,10,0,105)
-amountBox.Size = UDim2.new(1,-20,0,35)
-amountBox.PlaceholderText = "Jumlah object (contoh: 1000)"
-amountBox.BackgroundColor3 = Color3.fromRGB(30,30,30)
-amountBox.TextColor3 = Color3.new(1,1,1)
-amountBox.Font = Enum.Font.Gotham
-amountBox.TextScaled = true
-Instance.new("UICorner", amountBox).CornerRadius = UDim.new(0,6)
+-- INPUTS
+local function createBox(y, placeholder)
+	local box = Instance.new("TextBox", main)
+	box.Position = UDim2.new(0,10,0,y)
+	box.Size = UDim2.new(1,-20,0,35)
+	box.PlaceholderText = placeholder
+	box.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	box.TextColor3 = Color3.new(1,1,1)
+	box.Font = Enum.Font.Gotham
+	box.TextScaled = true
+	Instance.new("UICorner", box).CornerRadius = UDim.new(0,6)
+	return box
+end
 
--- INPUT: Delay
-local delayBox = amountBox:Clone()
-delayBox.Parent = main
-delayBox.Position = UDim2.new(0,10,0,150)
-delayBox.PlaceholderText = "Delay spawn (contoh: 0.01)"
+local amountBox = createBox(105,"Jumlah object (contoh: 2000)")
+local delayBox = createBox(150,"Delay spawn (contoh: 0.001)")
+local sizeBox = createBox(195,"Ukuran (GUI/Part) contoh: 100")
 
--- INPUT: Size
-local sizeBox = amountBox:Clone()
-sizeBox.Parent = main
-sizeBox.Position = UDim2.new(0,10,0,195)
-sizeBox.PlaceholderText = "Ukuran label (contoh: 100)"
+-- MODE BUTTON
+local modeButton = Instance.new("TextButton", main)
+modeButton.Position = UDim2.new(0,10,0,240)
+modeButton.Size = UDim2.new(1,-20,0,35)
+modeButton.Text = "Mode: 2D GUI"
+modeButton.BackgroundColor3 = Color3.fromRGB(0,60,120)
+modeButton.TextColor3 = Color3.new(1,1,1)
+modeButton.Font = Enum.Font.GothamBold
+modeButton.TextScaled = true
+Instance.new("UICorner", modeButton).CornerRadius = UDim.new(0,6)
 
--- START BUTTON
-local startBtn = Instance.new("TextButton", main)
-startBtn.Position = UDim2.new(0,10,0,240)
-startBtn.Size = UDim2.new(1,-20,0,40)
-startBtn.Text = "▶ Start"
-startBtn.BackgroundColor3 = Color3.fromRGB(0,120,0)
-startBtn.TextColor3 = Color3.new(1,1,1)
-startBtn.Font = Enum.Font.GothamBold
-startBtn.TextScaled = true
-Instance.new("UICorner", startBtn).CornerRadius = UDim.new(0,6)
+local currentMode = "2D"
 
--- STOP BUTTON
-local stopBtn = startBtn:Clone()
-stopBtn.Parent = main
-stopBtn.Position = UDim2.new(0,10,0,290)
-stopBtn.Text = "⏹ Stop"
-stopBtn.BackgroundColor3 = Color3.fromRGB(120,0,0)
+modeButton.MouseButton1Click:Connect(function()
+	if currentMode == "2D" then
+		currentMode = "3D"
+		modeButton.Text = "Mode: 3D Parts"
+	else
+		currentMode = "2D"
+		modeButton.Text = "Mode: 2D GUI"
+	end
+end)
 
--- CLEAR BUTTON
-local clearBtn = startBtn:Clone()
-clearBtn.Parent = main
-clearBtn.Position = UDim2.new(0,10,0,340)
-clearBtn.Text = "🧹 Clear"
-clearBtn.BackgroundColor3 = Color3.fromRGB(0,80,120)
+-- BUTTONS
+local function createButton(y,text,color)
+	local btn = Instance.new("TextButton", main)
+	btn.Position = UDim2.new(0,10,0,y)
+	btn.Size = UDim2.new(1,-20,0,40)
+	btn.Text = text
+	btn.BackgroundColor3 = color
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Font = Enum.Font.GothamBold
+	btn.TextScaled = true
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0,6)
+	return btn
+end
+
+local startBtn = createButton(285,"▶ Start",Color3.fromRGB(0,120,0))
+local stopBtn = createButton(335,"⏹ Stop",Color3.fromRGB(120,0,0))
+local clearBtn = createButton(385,"🧹 Clear",Color3.fromRGB(0,80,120))
 
 -- STORAGE
-local stressFolder = Instance.new("Folder", main)
-stressFolder.Name = "StressObjects"
+local folder = Instance.new("Folder", workspace)
+folder.Name = "ClientStressParts"
+
+local guiFolder = Instance.new("Folder", main)
+guiFolder.Name = "ClientStressGUI"
 
 local running = false
+local renderObjects = {}
 
 -- START
 startBtn.MouseButton1Click:Connect(function()
 	if running then return end
 	running = true
 	
-	local amount = tonumber(amountBox.Text) or 100
+	local amount = tonumber(amountBox.Text) or 500
 	local delayTime = tonumber(delayBox.Text) or 0.01
 	local size = tonumber(sizeBox.Text) or 100
 	
@@ -108,21 +123,45 @@ startBtn.MouseButton1Click:Connect(function()
 		for i = 1, amount do
 			if not running then break end
 			
-			local lbl = Instance.new("TextLabel")
-			lbl.Size = UDim2.new(0,size,0,20)
-			lbl.Position = UDim2.new(math.random(),0,math.random(),0)
-			lbl.Text = "Load "..i
-			lbl.TextColor3 = Color3.fromRGB(
-				math.random(0,255),
-				math.random(0,255),
-				math.random(0,255)
-			)
-			lbl.BackgroundTransparency = 1
-			lbl.Parent = stressFolder
+			if currentMode == "2D" then
+				local lbl = Instance.new("TextLabel")
+				lbl.Size = UDim2.new(0,size,0,20)
+				lbl.Position = UDim2.new(math.random(),0,math.random(),0)
+				lbl.Text = "Load "..i
+				lbl.TextColor3 = Color3.fromRGB(math.random(0,255),math.random(0,255),math.random(0,255))
+				lbl.BackgroundTransparency = 1
+				lbl.Parent = guiFolder
+				table.insert(renderObjects,lbl)
+			else
+				local part = Instance.new("Part")
+				part.Size = Vector3.new(size/10,size/10,size/10)
+				part.Position = player.Character.HumanoidRootPart.Position + Vector3.new(
+					math.random(-50,50),
+					math.random(0,50),
+					math.random(-50,50)
+				)
+				part.Anchored = true
+				part.Color = Color3.fromRGB(math.random(0,255),math.random(0,255),math.random(0,255))
+				part.Parent = folder
+				table.insert(renderObjects,part)
+			end
 			
 			task.wait(delayTime)
 		end
 	end)
+end)
+
+-- HEAVY RENDER LOOP
+RunService.RenderStepped:Connect(function(dt)
+	if not running then return end
+	
+	for _,obj in pairs(renderObjects) do
+		if obj:IsA("Part") then
+			obj.CFrame = obj.CFrame * CFrame.Angles(0, math.rad(10), 0)
+		elseif obj:IsA("TextLabel") then
+			obj.Rotation += 5
+		end
+	end
 end)
 
 -- STOP
@@ -132,12 +171,17 @@ end)
 
 -- CLEAR
 clearBtn.MouseButton1Click:Connect(function()
-	for _,v in pairs(stressFolder:GetChildren()) do
+	running = false
+	for _,v in pairs(folder:GetChildren()) do
 		v:Destroy()
 	end
+	for _,v in pairs(guiFolder:GetChildren()) do
+		v:Destroy()
+	end
+	table.clear(renderObjects)
 end)
 
--- FPS + MEMORY MONITOR
+-- FPS + MEMORY
 local last = tick()
 local frames = 0
 
