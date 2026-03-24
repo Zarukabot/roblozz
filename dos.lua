@@ -1,331 +1,387 @@
 --// ============================================================
---// ADMIN PANEL — FULL EDITION
---// Cara pasang: StarterGui > LocalScript
---// PENTING: Ganti ADMIN_NAME dengan username Roblox kamu!
+--// ADMIN PANEL — RAYFIELD EDITION
+--// Cara pasang: Paste di executor
+--// ⚠️ Ganti ADMIN_NAME dengan username Roblox kamu!
 --// ============================================================
 
-local Players    = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local Players   = game:GetService("Players")
+local player    = Players.LocalPlayer
 
-local player = Players.LocalPlayer
-
---// ⚠️ GANTI INI DENGAN USERNAME KAMU
+--// ⚠️ GANTI INI
 local ADMIN_NAME = "NamaKamuDisini"
 
--- Cek apakah player adalah admin
-if player.Name ~= ADMIN_NAME then return end
-
--- ============================================================
--- GUI SETUP
--- ============================================================
-local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-gui.Name = "AdminPanel"
-gui.ResetOnSpawn = false
-
--- MAIN FRAME
-local main = Instance.new("Frame", gui)
-main.Size = UDim2.new(0, 380, 0, 540)
-main.Position = UDim2.new(0.5, -190, 0.5, -270)
-main.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
-main.Active = true
-main.Draggable = true
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 14)
-local border = Instance.new("UIStroke", main)
-border.Color = Color3.fromRGB(255, 180, 0)
-border.Thickness = 1.5
-
--- TITLE
-local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1, 0, 0, 44)
-title.BackgroundTransparency = 1
-title.Text = "⚡ ADMIN PANEL"
-title.TextColor3 = Color3.fromRGB(255, 180, 0)
-title.Font = Enum.Font.GothamBold
-title.TextScaled = true
-
--- STATUS BAR
-local status = Instance.new("TextLabel", main)
-status.Position = UDim2.new(0, 10, 0, 46)
-status.Size = UDim2.new(1, -20, 0, 24)
-status.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-status.TextColor3 = Color3.fromRGB(0, 255, 150)
-status.Font = Enum.Font.Code
-status.TextScaled = true
-status.Text = "✔ Admin aktif: " .. player.Name
-status.TextXAlignment = Enum.TextXAlignment.Left
-Instance.new("UICorner", status).CornerRadius = UDim.new(0, 5)
-
--- ============================================================
--- PLAYER SELECTOR
--- ============================================================
-local selectorLabel = Instance.new("TextLabel", main)
-selectorLabel.Position = UDim2.new(0, 10, 0, 78)
-selectorLabel.Size = UDim2.new(1, -20, 0, 22)
-selectorLabel.BackgroundTransparency = 1
-selectorLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-selectorLabel.Font = Enum.Font.Gotham
-selectorLabel.TextScaled = true
-selectorLabel.Text = "Pilih Target Player:"
-selectorLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-local scrollFrame = Instance.new("ScrollingFrame", main)
-scrollFrame.Position = UDim2.new(0, 10, 0, 102)
-scrollFrame.Size = UDim2.new(1, -20, 0, 130)
-scrollFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-scrollFrame.BorderSizePixel = 0
-scrollFrame.ScrollBarThickness = 4
-scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 180, 0)
-Instance.new("UICorner", scrollFrame).CornerRadius = UDim.new(0, 8)
-
-local listLayout = Instance.new("UIListLayout", scrollFrame)
-listLayout.Padding = UDim.new(0, 3)
-listLayout.SortOrder = Enum.SortOrder.Name
-
-local selectedPlayer = nil
-local playerButtons = {}
-
-local function setStatus(msg, color)
-    status.Text = msg
-    status.TextColor3 = color or Color3.fromRGB(0, 255, 150)
+if player.Name ~= ADMIN_NAME then
+    warn("Bukan admin, script berhenti.")
+    return
 end
 
-local function refreshPlayerList()
-    for _, btn in pairs(playerButtons) do btn:Destroy() end
-    playerButtons = {}
+--// Load Rayfield
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
+--// Buat Window
+local Window = Rayfield:CreateWindow({
+    Name = "⚡ Admin Panel",
+    LoadingTitle = "Admin Panel",
+    LoadingSubtitle = "by " .. ADMIN_NAME,
+    Theme = "Default",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+    ConfigurationSaving = {
+        Enabled = false,
+    },
+    KeySystem = false,
+})
+
+-- ============================================================
+-- TARGET PLAYER (disimpan di variable)
+-- ============================================================
+local selectedTarget = player.Name -- default diri sendiri
+
+local function getTargetPlayer()
+    return Players:FindFirstChild(selectedTarget)
+end
+
+local function getTargetChar()
+    local t = getTargetPlayer()
+    if t and t.Character then return t.Character end
+    return nil
+end
+
+local function getHumanoid()
+    local char = getTargetChar()
+    if char then return char:FindFirstChildOfClass("Humanoid") end
+    return nil
+end
+
+local function getHRP()
+    local char = getTargetChar()
+    if char then return char:FindFirstChild("HumanoidRootPart") end
+    return nil
+end
+
+local function playerNames()
+    local names = {}
     for _, p in ipairs(Players:GetPlayers()) do
-        local btn = Instance.new("TextButton", scrollFrame)
-        btn.Size = UDim2.new(1, -6, 0, 30)
-        btn.Font = Enum.Font.Gotham
-        btn.TextScaled = true
-        btn.TextXAlignment = Enum.TextXAlignment.Left
-        btn.BorderSizePixel = 0
+        table.insert(names, p.Name)
+    end
+    return names
+end
 
-        if selectedPlayer == p then
-            btn.BackgroundColor3 = Color3.fromRGB(60, 45, 0)
-            btn.TextColor3 = Color3.fromRGB(255, 200, 0)
-            btn.Text = "  ► " .. p.Name .. (p == player and " (Kamu)" or "")
+-- ============================================================
+-- TAB 1: TARGET
+-- ============================================================
+local TabTarget = Window:CreateTab("👤 Target", 4483362458)
+
+TabTarget:CreateSection("Pilih Target Player")
+
+local targetDropdown = TabTarget:CreateDropdown({
+    Name = "Target Player",
+    Options = playerNames(),
+    CurrentOption = {player.Name},
+    MultipleOptions = false,
+    Flag = "TargetPlayer",
+    Callback = function(option)
+        selectedTarget = option[1] or player.Name
+        Rayfield:Notify({
+            Title = "Target dipilih",
+            Content = "Target: " .. selectedTarget,
+            Duration = 2,
+        })
+    end,
+})
+
+-- Refresh daftar player
+TabTarget:CreateButton({
+    Name = "🔄 Refresh Daftar Player",
+    Callback = function()
+        targetDropdown:Refresh(playerNames(), {player.Name})
+        Rayfield:Notify({
+            Title = "Refreshed",
+            Content = "Daftar player diperbarui",
+            Duration = 2,
+        })
+    end,
+})
+
+Players.PlayerAdded:Connect(function()
+    task.wait(0.5)
+    targetDropdown:Refresh(playerNames(), {selectedTarget})
+end)
+Players.PlayerRemoving:Connect(function()
+    task.wait(0.5)
+    targetDropdown:Refresh(playerNames(), {player.Name})
+    selectedTarget = player.Name
+end)
+
+-- ============================================================
+-- TAB 2: PLAYER ACTIONS
+-- ============================================================
+local TabActions = Window:CreateTab("🎮 Actions", 4483362458)
+
+TabActions:CreateSection("Teleport")
+
+TabActions:CreateButton({
+    Name = "📍 Teleport Target ke Aku",
+    Callback = function()
+        local myHRP  = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        local tgtHRP = getHRP()
+        if myHRP and tgtHRP then
+            tgtHRP.CFrame = myHRP.CFrame + Vector3.new(3, 0, 0)
+            Rayfield:Notify({ Title = "Teleport", Content = selectedTarget .. " diteleport ke kamu", Duration = 2 })
         else
-            btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-            btn.TextColor3 = Color3.fromRGB(210, 210, 210)
-            btn.Text = "    " .. p.Name .. (p == player and " (Kamu)" or "")
+            Rayfield:Notify({ Title = "Gagal", Content = "Character tidak ditemukan", Duration = 2 })
         end
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+    end,
+})
 
-        btn.MouseButton1Click:Connect(function()
-            selectedPlayer = p
-            setStatus("Target: " .. p.Name, Color3.fromRGB(255, 200, 0))
-            refreshPlayerList()
-        end)
+TabActions:CreateButton({
+    Name = "🚀 Teleport Aku ke Target",
+    Callback = function()
+        local myHRP  = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        local tgtHRP = getHRP()
+        if myHRP and tgtHRP then
+            myHRP.CFrame = tgtHRP.CFrame + Vector3.new(3, 0, 0)
+            Rayfield:Notify({ Title = "Teleport", Content = "Kamu diteleport ke " .. selectedTarget, Duration = 2 })
+        else
+            Rayfield:Notify({ Title = "Gagal", Content = "Character tidak ditemukan", Duration = 2 })
+        end
+    end,
+})
 
-        table.insert(playerButtons, btn)
-    end
+TabActions:CreateSection("Freeze & Reset")
 
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #Players:GetPlayers() * 33)
-end
+local frozenState = false
+TabActions:CreateToggle({
+    Name = "🧊 Freeze Target",
+    CurrentValue = false,
+    Flag = "FreezeToggle",
+    Callback = function(state)
+        local hrp = getHRP()
+        if hrp then
+            hrp.Anchored = state
+            frozenState = state
+            Rayfield:Notify({
+                Title = state and "Frozen" or "Unfrozen",
+                Content = selectedTarget .. (state and " di-freeze" or " di-unfreeze"),
+                Duration = 2,
+            })
+        end
+    end,
+})
 
-refreshPlayerList()
-Players.PlayerAdded:Connect(function() task.wait(0.1) refreshPlayerList() end)
-Players.PlayerRemoving:Connect(function() task.wait(0.1) refreshPlayerList() end)
-
--- ============================================================
--- ACTION BUTTONS
--- ============================================================
-local function makeBtn(text, yOff, r, g, b)
-    local btn = Instance.new("TextButton", main)
-    btn.Size = UDim2.new(0.47, 0, 0, 36)
-    btn.Position = UDim2.new(0, 10, 0, yOff)
-    btn.Text = text
-    btn.BackgroundColor3 = Color3.fromRGB(r, g, b)
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextScaled = true
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 7)
-    return btn
-end
-
-local function makeBtnRight(text, yOff, r, g, b)
-    local btn = makeBtn(text, yOff, r, g, b)
-    btn.Position = UDim2.new(0.52, 0, 0, yOff)
-    return btn
-end
-
-local function getTarget()
-    if not selectedPlayer then
-        setStatus("⚠ Pilih target dulu!", Color3.fromRGB(255, 80, 80))
-        return nil
-    end
-    if not selectedPlayer.Character then
-        setStatus("⚠ Character tidak ditemukan!", Color3.fromRGB(255, 80, 80))
-        return nil
-    end
-    return selectedPlayer
-end
-
--- ROW 1 — Kick & Freeze
-local kickBtn   = makeBtn("🚫 Kick",      245, 180, 30, 30)
-local freezeBtn = makeBtnRight("🧊 Freeze", 245, 30, 80, 180)
-
--- ROW 2 — Unfreeze & Teleport to Me
-local unfreezeBtn  = makeBtn("🔥 Unfreeze",    290, 30, 130, 60)
-local tpToMeBtn    = makeBtnRight("📍 TP ke Aku", 290, 60, 60, 180)
-
--- ROW 3 — Teleport Me to Target & Reset
-local tpToTargetBtn = makeBtn("🚀 TP ke Target", 335, 80, 60, 160)
-local resetBtn      = makeBtnRight("💀 Reset",    335, 160, 60, 60)
-
--- ROW 4 — Speed
-local speedLabel = Instance.new("TextLabel", main)
-speedLabel.Position = UDim2.new(0, 10, 0, 383)
-speedLabel.Size = UDim2.new(0.45, 0, 0, 20)
-speedLabel.BackgroundTransparency = 1
-speedLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-speedLabel.Font = Enum.Font.Gotham
-speedLabel.TextScaled = true
-speedLabel.Text = "Speed (default: 16)"
-speedLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-local speedBox = Instance.new("TextBox", main)
-speedBox.Position = UDim2.new(0, 10, 0, 405)
-speedBox.Size = UDim2.new(0.45, 0, 0, 30)
-speedBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-speedBox.TextColor3 = Color3.fromRGB(255, 200, 100)
-speedBox.Font = Enum.Font.Code
-speedBox.TextScaled = true
-speedBox.PlaceholderText = "Masukkan speed..."
-Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 5)
-
-local setSpeedBtn = makeBtnRight("⚡ Set Speed", 405, 120, 100, 20)
-setSpeedBtn.Size = UDim2.new(0.47, 0, 0, 30)
-
--- ROW 5 — Jump
-local jumpLabel = Instance.new("TextLabel", main)
-jumpLabel.Position = UDim2.new(0, 10, 0, 443)
-jumpLabel.Size = UDim2.new(0.45, 0, 0, 20)
-jumpLabel.BackgroundTransparency = 1
-jumpLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-jumpLabel.Font = Enum.Font.Gotham
-jumpLabel.TextScaled = true
-jumpLabel.Text = "Jump Power (default: 50)"
-jumpLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-local jumpBox = Instance.new("TextBox", main)
-jumpBox.Position = UDim2.new(0, 10, 0, 465)
-jumpBox.Size = UDim2.new(0.45, 0, 0, 30)
-jumpBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-jumpBox.TextColor3 = Color3.fromRGB(100, 200, 255)
-jumpBox.Font = Enum.Font.Code
-jumpBox.TextScaled = true
-jumpBox.PlaceholderText = "Masukkan jump power..."
-Instance.new("UICorner", jumpBox).CornerRadius = UDim.new(0, 5)
-
-local setJumpBtn = makeBtnRight("🦘 Set Jump", 465, 20, 100, 140)
-setJumpBtn.Size = UDim2.new(0.47, 0, 0, 30)
+TabActions:CreateButton({
+    Name = "💀 Reset / Kill Target",
+    Callback = function()
+        local hum = getHumanoid()
+        if hum then
+            hum.Health = 0
+            Rayfield:Notify({ Title = "Reset", Content = selectedTarget .. " di-reset", Duration = 2 })
+        else
+            Rayfield:Notify({ Title = "Gagal", Content = "Humanoid tidak ditemukan", Duration = 2 })
+        end
+    end,
+})
 
 -- ============================================================
--- BUTTON LOGIC
+-- TAB 3: SPEED & JUMP
 -- ============================================================
+local TabStats = Window:CreateTab("⚡ Speed & Jump", 4483362458)
 
--- KICK
-kickBtn.MouseButton1Click:Connect(function()
-    local t = getTarget()
-    if not t then return end
-    if t == player then
-        setStatus("⚠ Tidak bisa kick diri sendiri!", Color3.fromRGB(255,80,80))
-        return
-    end
-    -- Kick hanya bisa dilakukan dari server (Script), dari LocalScript tidak bisa
-    -- Tapi bisa pakai RemoteEvent kalau setup server-side
-    setStatus("⚠ Kick butuh RemoteEvent di server!", Color3.fromRGB(255,150,0))
-end)
+TabStats:CreateSection("WalkSpeed")
 
--- FREEZE
-freezeBtn.MouseButton1Click:Connect(function()
-    local t = getTarget()
-    if not t then return end
-    local hrp = t.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.Anchored = true
-        setStatus("🧊 " .. t.Name .. " di-freeze!", Color3.fromRGB(100, 180, 255))
-    end
-end)
+TabStats:CreateSlider({
+    Name = "⚡ Speed Target",
+    Range = {0, 500},
+    Increment = 1,
+    Suffix = "",
+    CurrentValue = 16,
+    Flag = "SpeedSlider",
+    Callback = function(val)
+        local hum = getHumanoid()
+        if hum then
+            hum.WalkSpeed = val
+        end
+    end,
+})
 
--- UNFREEZE
-unfreezeBtn.MouseButton1Click:Connect(function()
-    local t = getTarget()
-    if not t then return end
-    local hrp = t.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.Anchored = false
-        setStatus("🔥 " .. t.Name .. " di-unfreeze!", Color3.fromRGB(0, 255, 150))
-    end
-end)
+TabStats:CreateButton({
+    Name = "🔁 Reset Speed ke Default (16)",
+    Callback = function()
+        local hum = getHumanoid()
+        if hum then
+            hum.WalkSpeed = 16
+            Rayfield:Notify({ Title = "Reset", Content = "Speed dikembalikan ke 16", Duration = 2 })
+        end
+    end,
+})
 
--- TELEPORT TARGET KE PLAYER
-tpToMeBtn.MouseButton1Click:Connect(function()
-    local t = getTarget()
-    if not t then return end
-    local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    local tHRP  = t.Character:FindFirstChild("HumanoidRootPart")
-    if myHRP and tHRP then
-        tHRP.CFrame = myHRP.CFrame + Vector3.new(3, 0, 0)
-        setStatus("📍 " .. t.Name .. " diteleport ke kamu!", Color3.fromRGB(0, 200, 255))
-    end
-end)
+TabStats:CreateSection("JumpPower")
 
--- TELEPORT PLAYER KE TARGET
-tpToTargetBtn.MouseButton1Click:Connect(function()
-    local t = getTarget()
-    if not t then return end
-    local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    local tHRP  = t.Character:FindFirstChild("HumanoidRootPart")
-    if myHRP and tHRP then
-        myHRP.CFrame = tHRP.CFrame + Vector3.new(3, 0, 0)
-        setStatus("🚀 Kamu diteleport ke " .. t.Name .. "!", Color3.fromRGB(150, 100, 255))
-    end
-end)
+TabStats:CreateSlider({
+    Name = "🦘 Jump Power Target",
+    Range = {0, 500},
+    Increment = 1,
+    Suffix = "",
+    CurrentValue = 50,
+    Flag = "JumpSlider",
+    Callback = function(val)
+        local hum = getHumanoid()
+        if hum then
+            hum.JumpPower = val
+        end
+    end,
+})
 
--- RESET
-resetBtn.MouseButton1Click:Connect(function()
-    local t = getTarget()
-    if not t then return end
-    local hum = t.Character:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum.Health = 0
-        setStatus("💀 " .. t.Name .. " di-reset!", Color3.fromRGB(255, 80, 80))
-    end
-end)
+TabStats:CreateButton({
+    Name = "🔁 Reset Jump ke Default (50)",
+    Callback = function()
+        local hum = getHumanoid()
+        if hum then
+            hum.JumpPower = 50
+            Rayfield:Notify({ Title = "Reset", Content = "Jump dikembalikan ke 50", Duration = 2 })
+        end
+    end,
+})
 
--- SET SPEED
-setSpeedBtn.MouseButton1Click:Connect(function()
-    local t = getTarget()
-    if not t then return end
-    local val = tonumber(speedBox.Text)
-    if not val then
-        setStatus("⚠ Masukkan angka yang valid!", Color3.fromRGB(255,80,80))
-        return
-    end
-    val = math.clamp(val, 0, 500)
-    local hum = t.Character:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum.WalkSpeed = val
-        setStatus("⚡ Speed " .. t.Name .. " → " .. val, Color3.fromRGB(255, 200, 0))
-    end
-end)
+-- ============================================================
+-- TAB 4: SELF (untuk diri sendiri)
+-- ============================================================
+local TabSelf = Window:CreateTab("🧍 Self", 4483362458)
 
--- SET JUMP
-setJumpBtn.MouseButton1Click:Connect(function()
-    local t = getTarget()
-    if not t then return end
-    local val = tonumber(jumpBox.Text)
-    if not val then
-        setStatus("⚠ Masukkan angka yang valid!", Color3.fromRGB(255,80,80))
-        return
-    end
-    val = math.clamp(val, 0, 500)
-    local hum = t.Character:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum.JumpPower = val
-        setStatus("🦘 Jump " .. t.Name .. " → " .. val, Color3.fromRGB(100, 200, 255))
-    end
-end)
+TabSelf:CreateSection("Cheat Diri Sendiri")
+
+TabSelf:CreateToggle({
+    Name = "🌊 Infinite Jump",
+    CurrentValue = false,
+    Flag = "InfJump",
+    Callback = function(state)
+        _G.InfJump = state
+        if state then
+            game:GetService("UserInputService").JumpRequest:Connect(function()
+                if _G.InfJump then
+                    local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+                    if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+                end
+            end)
+        end
+    end,
+})
+
+TabSelf:CreateToggle({
+    Name = "🏃 Speed Boost (x3)",
+    CurrentValue = false,
+    Flag = "SelfSpeed",
+    Callback = function(state)
+        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.WalkSpeed = state and 48 or 16
+        end
+    end,
+})
+
+TabSelf:CreateToggle({
+    Name = "🦅 Fly Mode",
+    CurrentValue = false,
+    Flag = "FlyMode",
+    Callback = function(state)
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        if not hrp or not hum then return end
+
+        if state then
+            hum.PlatformStand = true
+            local bg = Instance.new("BodyGyro", hrp)
+            bg.Name = "FlyGyro"
+            bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+            bg.P = 9e4
+            local bv = Instance.new("BodyVelocity", hrp)
+            bv.Name = "FlyVelocity"
+            bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+            bv.Velocity = Vector3.zero
+
+            local UIS = game:GetService("UserInputService")
+            local cam = workspace.CurrentCamera
+
+            game:GetService("RunService").RenderStepped:Connect(function()
+                if not _G.FlyActive then return end
+                local dir = Vector3.zero
+                if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0,1,0) end
+                if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0,1,0) end
+                bv.Velocity = dir * 60
+                bg.CFrame = cam.CFrame
+            end)
+            _G.FlyActive = true
+        else
+            _G.FlyActive = false
+            hum.PlatformStand = false
+            if hrp:FindFirstChild("FlyGyro")    then hrp.FlyGyro:Destroy() end
+            if hrp:FindFirstChild("FlyVelocity") then hrp.FlyVelocity:Destroy() end
+        end
+    end,
+})
+
+TabSelf:CreateButton({
+    Name = "❤️ Full Heal Diri Sendiri",
+    Callback = function()
+        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.Health = hum.MaxHealth
+            Rayfield:Notify({ Title = "Healed", Content = "HP penuh!", Duration = 2 })
+        end
+    end,
+})
+
+-- ============================================================
+-- TAB 5: INFO
+-- ============================================================
+local TabInfo = Window:CreateTab("📊 Info", 4483362458)
+
+TabInfo:CreateSection("Server Info")
+
+TabInfo:CreateButton({
+    Name = "📋 Lihat Info Server",
+    Callback = function()
+        local playerList = ""
+        for _, p in ipairs(Players:GetPlayers()) do
+            playerList = playerList .. p.Name .. ", "
+        end
+        Rayfield:Notify({
+            Title = "Server Info",
+            Content = string.format(
+                "Players: %d/%d\nJob ID: %s",
+                #Players:GetPlayers(),
+                Players.MaxPlayers,
+                game.JobId ~= "" and string.sub(game.JobId, 1, 8) .. "..." or "Studio"
+            ),
+            Duration = 6,
+        })
+    end,
+})
+
+TabInfo:CreateButton({
+    Name = "📋 Lihat Semua Player",
+    Callback = function()
+        local list = ""
+        for i, p in ipairs(Players:GetPlayers()) do
+            list = list .. i .. ". " .. p.Name .. "\n"
+        end
+        Rayfield:Notify({
+            Title = "Player List (" .. #Players:GetPlayers() .. ")",
+            Content = list,
+            Duration = 8,
+        })
+    end,
+})
+
+-- ============================================================
+-- NOTIF SELAMAT DATANG
+-- ============================================================
+Rayfield:Notify({
+    Title = "✅ Admin Panel Aktif",
+    Content = "Selamat datang, " .. player.Name .. "!",
+    Duration = 4,
+})
