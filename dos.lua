@@ -1,120 +1,134 @@
 --// SERVICES
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local DataStoreService = game:GetService("DataStoreService")
 
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local animator = humanoid:WaitForChild("Animator")
+local FishDataStore = DataStoreService:GetDataStore("FishInventory")
 
---// STATE
-local AUTO_FISH_MODE = false
-local animationSpeed = 3
+--// CONFIG
+local FISH_LIST = {
+    {Name = "Common Fish", Rarity = 60},
+    {Name = "Rare Fish", Rarity = 30},
+    {Name = "Legendary Fish", Rarity = 10}
+}
+local AUTO_CATCH_DELAY = 0.5 -- detik
+local ULTRA_SPEED_MODE = false
 
--- Inventory per player
-local inventory = {}
-
--- GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = game.CoreGui
-ScreenGui.ResetOnSpawn = false
-
-local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.new(0, 300, 0, 220)
-Frame.Position = UDim2.new(0.05,0,0.2,0)
-Frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
-Frame.Active = true
-Frame.Draggable = true
-Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,12)
-
-local Title = Instance.new("TextLabel", Frame)
-Title.Size = UDim2.new(1,0,0,30)
-Title.BackgroundTransparency = 1
-Title.Text = "🎣 ULTRA AUTO FISH"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.TextScaled = true
-
-local Toggle = Instance.new("TextButton", Frame)
-Toggle.Size = UDim2.new(0.8,0,0,40)
-Toggle.Position = UDim2.new(0.1,0,0.2,0)
-Toggle.BackgroundColor3 = Color3.fromRGB(170,0,0)
-Toggle.Text = "OFF"
-Toggle.TextScaled = true
-Toggle.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0,8)
-
-local CounterLabel = Instance.new("TextLabel", Frame)
-CounterLabel.Size = UDim2.new(1,0,0,40)
-CounterLabel.Position = UDim2.new(0,0,0.6,0)
-CounterLabel.BackgroundTransparency = 1
-CounterLabel.TextColor3 = Color3.new(1,1,1)
-CounterLabel.TextScaled = true
-CounterLabel.Text = "Fish Collected: 0"
-
---// FAST ANIMATION
-humanoid.AnimationPlayed:Connect(function(track)
-    track:AdjustSpeed(animationSpeed)
-end)
-
---// ALL FISH IN SERVER (simulasi)
-local function getAllFish()
-    local fishNames = {}
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Name:lower():find("fish") then
-            table.insert(fishNames, obj.Name)
-        end
+--// FUNCTIONS
+local function getRandomFish()
+    local total = 0
+    for _, fish in pairs(FISH_LIST) do total += fish.Rarity end
+    local roll = math.random(1, total)
+    local cumulative = 0
+    for _, fish in pairs(FISH_LIST) do
+        cumulative += fish.Rarity
+        if roll <= cumulative then return fish.Name end
     end
-    return fishNames
+    return FISH_LIST[1].Name
 end
 
---// FUNCTION: Masukkan semua fish ke inventory langsung
-local function collectAllFishToInventory()
-    if not AUTO_FISH_MODE then return end
+local function setupPlayer(player)
+    -- Inventory
+    local inventory = {}
+    player:SetAttribute("FishCount",0)
 
-    local allFish = getAllFish()
-    for _, fishName in pairs(allFish) do
-        if inventory[fishName] then
-            inventory[fishName] += 1
-        else
-            inventory[fishName] = 1
-        end
+    -- Load from DataStore
+    local success, data = pcall(function()
+        return FishDataStore:GetAsync(player.UserId)
+    end)
+    if success and data then
+        inventory = data
+        local total = 0
+        for _,v in pairs(inventory) do total += v end
+        player:SetAttribute("FishCount",total)
     end
 
-    -- Update GUI counter
-    local totalFish = 0
-    for _, v in pairs(inventory) do totalFish += v end
-    CounterLabel.Text = "Fish Collected: "..totalFish
-end
+    -- Inventory GUI
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "FishingGUI"
+    gui.Parent = player:WaitForChild("PlayerGui")
+    gui.ResetOnSpawn = false
 
---// LOOP
-RunService.RenderStepped:Connect(function()
-    if AUTO_FISH_MODE then
-        collectAllFishToInventory()
-    end
-end)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0,300,0,200)
+    frame.Position = UDim2.new(0.05,0,0.05,0)
+    frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+    frame.Parent = gui
+    frame.Active = true
+    frame.Draggable = true
+    Instance.new("UICorner",frame).CornerRadius = UDim.new(0,12)
 
---// TOGGLE
-Toggle.MouseButton1Click:Connect(function()
-    AUTO_FISH_MODE = not AUTO_FISH_MODE
-    if AUTO_FISH_MODE then
-        Toggle.Text = "ON"
-        Toggle.BackgroundColor3 = Color3.fromRGB(0,170,0)
-    else
-        Toggle.Text = "OFF"
-        Toggle.BackgroundColor3 = Color3.fromRGB(170,0,0)
-    end
-end)
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1,0,0,30)
+    title.Position = UDim2.new(0,0,0,0)
+    title.BackgroundTransparency = 1
+    title.Text = "🎣 FISHING INVENTORY"
+    title.TextColor3 = Color3.fromRGB(255,255,255)
+    title.TextScaled = true
+    title.Parent = frame
 
--- Optional: Print inventory tiap 5 detik
-task.spawn(function()
-    while true do
-        task.wait(5)
-        if next(inventory) then
-            print("🧰 Inventory:")
-            for name, amount in pairs(inventory) do
-                print(name..": "..amount)
+    local counterLabel = Instance.new("TextLabel")
+    counterLabel.Size = UDim2.new(1,0,0,40)
+    counterLabel.Position = UDim2.new(0,0,0.7,0)
+    counterLabel.BackgroundTransparency = 1
+    counterLabel.TextColor3 = Color3.fromRGB(255,255,255)
+    counterLabel.TextScaled = true
+    counterLabel.Text = "Fish Collected: "..player:GetAttribute("FishCount")
+    counterLabel.Parent = frame
+
+    -- Equip Rod Detection
+    player.CharacterAdded:Connect(function(char)
+        local humanoid = char:WaitForChild("Humanoid")
+        local hrp = char:WaitForChild("HumanoidRootPart")
+
+        char.ChildAdded:Connect(function(child)
+            if child:IsA("Tool") and child.Name == "FishingRod" then
+                task.spawn(function()
+                    while child.Parent == char do
+                        task.wait(AUTO_CATCH_DELAY / (ULTRA_SPEED_MODE and 3 or 1))
+                        local fishName = getRandomFish()
+
+                        -- Update inventory
+                        if inventory[fishName] then
+                            inventory[fishName] += 1
+                        else
+                            inventory[fishName] = 1
+                        end
+
+                        -- Update counter
+                        local total = 0
+                        for _,v in pairs(inventory) do total += v end
+                        player:SetAttribute("FishCount",total)
+                        counterLabel.Text = "Fish Collected: "..total
+
+                        -- Sound effect
+                        local sound = Instance.new("Sound")
+                        sound.SoundId = "rbxassetid://12222225" -- ganti ID sound
+                        sound.Volume = 1
+                        sound.Parent = hrp
+                        sound:Play()
+                        game.Debris:AddItem(sound,2)
+                    end
+                end)
             end
+        end)
+    end)
+
+    -- Auto save inventory tiap 30 detik
+    task.spawn(function()
+        while player.Parent do
+            task.wait(30)
+            pcall(function()
+                FishDataStore:SetAsync(player.UserId, inventory)
+            end)
         end
-    end
-end)
+    end)
+end
+
+-- Setup existing and new players
+for _,p in pairs(Players:GetPlayers()) do
+    setupPlayer(p)
+end
+Players.PlayerAdded:Connect(setupPlayer)
