@@ -13,15 +13,19 @@ local AUTO_FISH_MODE = false
 local animationSpeed = 3
 local originalWalkSpeed = humanoid.WalkSpeed
 local originalJumpPower = humanoid.JumpPower
+
 local fishCount = 0
 
--- Pastikan ada RemoteEvent di ReplicatedStorage
+-- Buat RemoteEvent jika belum ada
 local FishEvent = ReplicatedStorage:FindFirstChild("FishEvent")
 if not FishEvent then
     FishEvent = Instance.new("RemoteEvent")
     FishEvent.Name = "FishEvent"
     FishEvent.Parent = ReplicatedStorage
 end
+
+-- List semua jenis fish
+local allFish = {"Common Fish","Rare Fish","Legendary Fish"}
 
 --// GUI
 local ScreenGui = Instance.new("ScreenGui")
@@ -39,7 +43,7 @@ Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,12)
 local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1,0,0,30)
 Title.BackgroundTransparency = 1
-Title.Text = "🎣 AUTO FISH MODE"
+Title.Text = "🎣 ULTRA AUTO FISH"
 Title.TextColor3 = Color3.new(1,1,1)
 Title.TextScaled = true
 
@@ -66,21 +70,23 @@ humanoid.AnimationPlayed:Connect(function(track)
 end)
 
 --// AUTO FISH FUNCTION
-local function catchFish()
+local function catchAllFish()
     if AUTO_FISH_MODE then
-        -- animasi fishing cepat
-        humanoid:Move(Vector3.new(0,0,0)) -- bisa ditambahkan animasi tool nanti
-        task.wait(0.5) -- delay cepat untuk catch
-        fishCount += 1
-        CounterLabel.Text = "Fish Caught: "..fishCount
-        FishEvent:FireServer() -- kirim ke server
+        -- Tangkap semua fish sekaligus
+        for _, fishName in pairs(allFish) do
+            fishCount += 1
+            CounterLabel.Text = "Fish Caught: "..fishCount
+            -- Kirim ke server
+            FishEvent:FireServer(fishName)
+        end
+        task.wait(1) -- delay antar loop supaya tidak spam
     end
 end
 
 --// RUN LOOP
 RunService.RenderStepped:Connect(function()
     if AUTO_FISH_MODE then
-        catchFish()
+        catchAllFish()
     end
 end)
 
