@@ -5,15 +5,12 @@ local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-local humanoidRoot = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
 local animator = humanoid:WaitForChild("Animator")
 
 --// STATE
 local AUTO_FISH_MODE = false
 local animationSpeed = 3
-local originalWalkSpeed = humanoid.WalkSpeed
-local originalJumpPower = humanoid.JumpPower
 
 -- Inventory per player
 local inventory = {}
@@ -60,46 +57,40 @@ humanoid.AnimationPlayed:Connect(function(track)
     track:AdjustSpeed(animationSpeed)
 end)
 
---// FUNCTION: Find all fish in workspace
+--// ALL FISH IN SERVER (simulasi)
 local function getAllFish()
-    local fishes = {}
+    local fishNames = {}
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") and obj.Name:lower():find("fish") then
-            table.insert(fishes, obj)
+            table.insert(fishNames, obj.Name)
         end
     end
-    return fishes
+    return fishNames
 end
 
---// FUNCTION: Collect fish dan masuk inventory
-local function collectFish()
+--// FUNCTION: Masukkan semua fish ke inventory langsung
+local function collectAllFishToInventory()
     if not AUTO_FISH_MODE then return end
-    local fishes = getAllFish()
-    for _, fish in pairs(fishes) do
-        if fish and fish.Parent then
-            humanoidRoot.CFrame = fish.CFrame + Vector3.new(0,3,0)
-            task.wait(0.1) -- delay sebentar biar collect ter-trigger
 
-            -- Masukkan ke inventory
-            local fishName = fish.Name
-            if inventory[fishName] then
-                inventory[fishName] += 1
-            else
-                inventory[fishName] = 1
-            end
-
-            -- Update GUI counter
-            local totalFish = 0
-            for _, v in pairs(inventory) do totalFish += v end
-            CounterLabel.Text = "Fish Collected: "..totalFish
+    local allFish = getAllFish()
+    for _, fishName in pairs(allFish) do
+        if inventory[fishName] then
+            inventory[fishName] += 1
+        else
+            inventory[fishName] = 1
         end
     end
+
+    -- Update GUI counter
+    local totalFish = 0
+    for _, v in pairs(inventory) do totalFish += v end
+    CounterLabel.Text = "Fish Collected: "..totalFish
 end
 
 --// LOOP
 RunService.RenderStepped:Connect(function()
     if AUTO_FISH_MODE then
-        collectFish()
+        collectAllFishToInventory()
     end
 end)
 
@@ -115,7 +106,7 @@ Toggle.MouseButton1Click:Connect(function()
     end
 end)
 
--- Optional: print inventory di console setiap 5 detik
+-- Optional: Print inventory tiap 5 detik
 task.spawn(function()
     while true do
         task.wait(5)
