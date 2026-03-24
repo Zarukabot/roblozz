@@ -1,12 +1,15 @@
 --// ============================================================
---// TP ALL PLAYERS — RAYFIELD EDITION
+--// EMERGENCY ALARM SYSTEM — RAYFIELD EDITION
+--// Efek suara darurat + visual alert untuk semua player
 --// Cara pakai: Paste di executor
 --// ⚠️ Ganti ADMIN_NAME dengan username Roblox kamu!
 --// ============================================================
 
-local Players    = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local player     = Players.LocalPlayer
+local Players        = game:GetService("Players")
+local TweenService   = game:GetService("TweenService")
+local RunService     = game:GetService("RunService")
+local Lighting       = game:GetService("Lighting")
+local player         = Players.LocalPlayer
 
 --// ⚠️ GANTI INI
 local ADMIN_NAME = "Ryuzooaja"
@@ -20,8 +23,8 @@ end
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "📍 TP All Players",
-    LoadingTitle = "TP Tools",
+    Name = "🚨 Emergency System",
+    LoadingTitle = "Emergency Tools",
     LoadingSubtitle = "by " .. ADMIN_NAME,
     Theme = "Default",
     DisableRayfieldPrompts = false,
@@ -30,243 +33,307 @@ local Window = Rayfield:CreateWindow({
 })
 
 -- ============================================================
--- HELPER
+-- VARIABLES
 -- ============================================================
-local function getMyHRP()
-    return player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+local alarmActive     = false
+local alarmConnection = nil
+local sounds          = {}
+local gui             = player:WaitForChild("PlayerGui")
+
+-- Sound IDs Roblox built-in (bebas pakai)
+local SOUND_IDS = {
+    alarm    = 2865227271,  -- alarm sirine
+    boom     = 130113322,   -- ledakan
+    warning  = 1843198752,  -- warning beep
+    siren    = 138081500,   -- sirine panjang
+}
+
+-- ============================================================
+-- HELPER: BUAT SOUND DI WORKSPACE
+-- ============================================================
+local function playSound(id, volume, looped)
+    local s = Instance.new("Sound", workspace)
+    s.SoundId = "rbxassetid://" .. id
+    s.Volume = volume or 0.8
+    s.Looped = looped or false
+    s:Play()
+    table.insert(sounds, s)
+    return s
 end
 
-local function tpPlayerTo(target, cframe)
-    local hrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.CFrame = cframe
+local function stopAllSounds()
+    for _, s in pairs(sounds) do
+        if s and s.Parent then
+            s:Stop()
+            s:Destroy()
+        end
+    end
+    sounds = {}
+end
+
+-- ============================================================
+-- VISUAL ALERT (merah flash di layar)
+-- ============================================================
+local alertGui = nil
+
+local function createAlertOverlay(color, text)
+    if alertGui then alertGui:Destroy() end
+
+    alertGui = Instance.new("ScreenGui", gui)
+    alertGui.Name = "EmergencyOverlay"
+    alertGui.ResetOnSpawn = false
+    alertGui.DisplayOrder = 999
+
+    -- Flash overlay
+    local overlay = Instance.new("Frame", alertGui)
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.BackgroundColor3 = color
+    overlay.BackgroundTransparency = 0.7
+    overlay.BorderSizePixel = 0
+    overlay.ZIndex = 10
+
+    -- Border tepi merah
+    local border = Instance.new("Frame", alertGui)
+    border.Size = UDim2.new(1, 0, 1, 0)
+    border.BackgroundTransparency = 1
+    border.BorderSizePixel = 0
+    local stroke = Instance.new("UIStroke", border)
+    stroke.Color = color
+    stroke.Thickness = 12
+
+    -- Teks peringatan
+    local label = Instance.new("TextLabel", alertGui)
+    label.Size = UDim2.new(1, 0, 0, 80)
+    label.Position = UDim2.new(0, 0, 0.5, -40)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.Font = Enum.Font.GothamBold
+    label.TextScaled = true
+    label.ZIndex = 11
+
+    -- Flash animasi
+    local flashing = true
+    task.spawn(function()
+        while flashing and alertGui and alertGui.Parent do
+            TweenService:Create(overlay, TweenInfo.new(0.4), { BackgroundTransparency = 0.85 }):Play()
+            task.wait(0.4)
+            TweenService:Create(overlay, TweenInfo.new(0.4), { BackgroundTransparency = 0.5 }):Play()
+            task.wait(0.4)
+        end
+    end)
+
+    return function()
+        flashing = false
+        if alertGui then alertGui:Destroy() alertGui = nil end
     end
 end
 
--- ============================================================
--- TAB: TP ALL
--- ============================================================
-local Tab = Window:CreateTab("📍 TP All Players", 4483362458)
+local stopOverlay = nil
 
-Tab:CreateSection("Teleport Semua Player")
+-- ============================================================
+-- TAB 1: ALARM & SIRINE
+-- ============================================================
+local TabAlarm = Window:CreateTab("🚨 Alarm & Sirine", 4483362458)
 
--- TP semua ke posisi kamu
-Tab:CreateButton({
-    Name = "👥 TP Semua Player ke Posisiku",
-    Callback = function()
-        local myHRP = getMyHRP()
-        if not myHRP then
-            Rayfield:Notify({ Title = "Gagal", Content = "Character kamu tidak ditemukan", Duration = 3 })
-            return
+TabAlarm:CreateSection("Alarm Darurat")
+
+TabAlarm:CreateToggle({
+    Name = "🚨 Aktifkan Alarm Darurat (Loop)",
+    CurrentValue = false,
+    Flag = "AlarmToggle",
+    Callback = function(state)
+        if state then
+            alarmActive = true
+            playSound(SOUND_IDS.alarm, 0.9, true)
+            stopOverlay = createAlertOverlay(Color3.fromRGB(255, 30, 30), "⚠️ DARURAT! ⚠️")
+            Rayfield:Notify({ Title = "🚨 ALARM AKTIF", Content = "Alarm darurat menyala!", Duration = 3 })
+        else
+            alarmActive = false
+            stopAllSounds()
+            if stopOverlay then stopOverlay() stopOverlay = nil end
+            Rayfield:Notify({ Title = "✅ Alarm Mati", Content = "Alarm dimatikan", Duration = 2 })
         end
-        local count = 0
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= player then
-                local offset = Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
-                tpPlayerTo(p, myHRP.CFrame + offset)
-                count += 1
+    end,
+})
+
+TabAlarm:CreateToggle({
+    Name = "🔵 Sirine Polisi (Loop)",
+    CurrentValue = false,
+    Flag = "SirenToggle",
+    Callback = function(state)
+        if state then
+            playSound(SOUND_IDS.siren, 0.8, true)
+            stopOverlay = createAlertOverlay(Color3.fromRGB(30, 100, 255), "🚔 SIRINE AKTIF 🚔")
+            Rayfield:Notify({ Title = "🔵 Sirine", Content = "Sirine polisi menyala!", Duration = 3 })
+        else
+            stopAllSounds()
+            if stopOverlay then stopOverlay() stopOverlay = nil end
+        end
+    end,
+})
+
+TabAlarm:CreateButton({
+    Name = "⏹ Stop Semua Suara & Visual",
+    Callback = function()
+        stopAllSounds()
+        if stopOverlay then stopOverlay() stopOverlay = nil end
+        Rayfield:Notify({ Title = "⏹ Stopped", Content = "Semua suara dan visual dimatikan", Duration = 2 })
+    end,
+})
+
+-- ============================================================
+-- TAB 2: BOOM / LEDAKAN
+-- ============================================================
+local TabBoom = Window:CreateTab("💥 Boom", 4483362458)
+
+TabBoom:CreateSection("Efek Ledakan")
+
+TabBoom:CreateButton({
+    Name = "💥 Boom! (Sekali)",
+    Callback = function()
+        playSound(SOUND_IDS.boom, 1, false)
+        local stop = createAlertOverlay(Color3.fromRGB(255, 120, 0), "💥 BOOM! 💥")
+        task.delay(1.5, function()
+            stop()
+            stopAllSounds()
+        end)
+        Rayfield:Notify({ Title = "💥 BOOM", Content = "Suara ledakan diputar!", Duration = 2 })
+    end,
+})
+
+TabBoom:CreateButton({
+    Name = "💥💥 Multi Boom (5x)",
+    Callback = function()
+        task.spawn(function()
+            for i = 1, 5 do
+                playSound(SOUND_IDS.boom, 1, false)
+                local stop = createAlertOverlay(
+                    Color3.fromRGB(math.random(200,255), math.random(50,150), 0),
+                    "💥 BOOM " .. i .. "! 💥"
+                )
+                task.wait(0.3)
+                stop()
+                task.wait(0.5)
             end
-        end
-        Rayfield:Notify({
-            Title = "✅ Selesai",
-            Content = count .. " player diteleport ke posisimu",
-            Duration = 3,
-        })
-    end,
-})
-
--- TP semua ke koordinat custom
-Tab:CreateSection("TP ke Koordinat Custom")
-
-local inputX, inputY, inputZ = 0, 0, 0
-
-Tab:CreateInput({
-    Name = "X",
-    PlaceholderText = "Masukkan X (contoh: 100)",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(val)
-        inputX = tonumber(val) or 0
-    end,
-})
-
-Tab:CreateInput({
-    Name = "Y",
-    PlaceholderText = "Masukkan Y (contoh: 10)",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(val)
-        inputY = tonumber(val) or 0
-    end,
-})
-
-Tab:CreateInput({
-    Name = "Z",
-    PlaceholderText = "Masukkan Z (contoh: 200)",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(val)
-        inputZ = tonumber(val) or 0
-    end,
-})
-
-Tab:CreateButton({
-    Name = "🚀 TP Semua ke Koordinat ini",
-    Callback = function()
-        local targetCFrame = CFrame.new(inputX, inputY, inputZ)
-        local count = 0
-        for _, p in ipairs(Players:GetPlayers()) do
-            local offset = Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
-            tpPlayerTo(p, targetCFrame + offset)
-            count += 1
-        end
-        Rayfield:Notify({
-            Title = "✅ Selesai",
-            Content = count .. " player diteleport ke (" .. inputX .. ", " .. inputY .. ", " .. inputZ .. ")",
-            Duration = 4,
-        })
-    end,
-})
-
--- TP semua ke SpawnLocation
-Tab:CreateSection("TP ke Spawn")
-
-Tab:CreateButton({
-    Name = "🏁 TP Semua ke SpawnLocation",
-    Callback = function()
-        local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
-        if not spawn then
-            Rayfield:Notify({ Title = "Gagal", Content = "SpawnLocation tidak ditemukan di workspace", Duration = 3 })
-            return
-        end
-        local count = 0
-        for _, p in ipairs(Players:GetPlayers()) do
-            local offset = Vector3.new(math.random(-6, 6), 0, math.random(-6, 6))
-            tpPlayerTo(p, spawn.CFrame + offset + Vector3.new(0, 3, 0))
-            count += 1
-        end
-        Rayfield:Notify({
-            Title = "✅ Selesai",
-            Content = count .. " player diteleport ke Spawn",
-            Duration = 3,
-        })
-    end,
-})
-
--- TP semua saling scatter (random di area luas)
-Tab:CreateSection("Scatter / Acak")
-
-Tab:CreateButton({
-    Name = "💥 Scatter Semua Player (Random)",
-    Callback = function()
-        local myHRP = getMyHRP()
-        local base = myHRP and myHRP.Position or Vector3.new(0, 10, 0)
-        local count = 0
-        for _, p in ipairs(Players:GetPlayers()) do
-            local randomOffset = Vector3.new(
-                math.random(-200, 200),
-                math.random(5, 30),
-                math.random(-200, 200)
-            )
-            tpPlayerTo(p, CFrame.new(base + randomOffset))
-            count += 1
-        end
-        Rayfield:Notify({
-            Title = "💥 Scattered!",
-            Content = count .. " player dilempar ke random posisi",
-            Duration = 3,
-        })
-    end,
-})
-
--- TP semua ke satu titik persis (tumpuk)
-Tab:CreateButton({
-    Name = "📦 Tumpuk Semua Player (1 Titik)",
-    Callback = function()
-        local myHRP = getMyHRP()
-        local base = myHRP and myHRP.CFrame or CFrame.new(0, 10, 0)
-        local count = 0
-        for _, p in ipairs(Players:GetPlayers()) do
-            tpPlayerTo(p, base)
-            count += 1
-        end
-        Rayfield:Notify({
-            Title = "📦 Ditumpuk!",
-            Content = count .. " player ditumpuk di satu titik",
-            Duration = 3,
-        })
+            stopAllSounds()
+        end)
+        Rayfield:Notify({ Title = "💥 Multi Boom", Content = "5x ledakan!", Duration = 3 })
     end,
 })
 
 -- ============================================================
--- TAB: TP SATU PLAYER
+-- TAB 3: WARNING SYSTEM
 -- ============================================================
-local TabSingle = Window:CreateTab("👤 TP Single Player", 4483362458)
+local TabWarn = Window:CreateTab("⚠️ Warning", 4483362458)
 
-TabSingle:CreateSection("Pilih Target")
+TabWarn:CreateSection("Pesan Peringatan")
 
-local selectedTarget = player.Name
+local warnText = "⚠️ PERINGATAN SISTEM ⚠️"
 
-local function playerNames()
-    local names = {}
-    for _, p in ipairs(Players:GetPlayers()) do
-        table.insert(names, p.Name)
-    end
-    return names
-end
-
-local dropdown = TabSingle:CreateDropdown({
-    Name = "Target Player",
-    Options = playerNames(),
-    CurrentOption = {player.Name},
-    MultipleOptions = false,
-    Flag = "SingleTarget",
-    Callback = function(option)
-        selectedTarget = option[1] or player.Name
+TabWarn:CreateInput({
+    Name = "Teks Peringatan",
+    PlaceholderText = "Masukkan teks peringatan...",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(val)
+        if val ~= "" then warnText = val end
     end,
 })
 
-TabSingle:CreateButton({
-    Name = "🔄 Refresh Daftar",
+TabWarn:CreateButton({
+    Name = "📢 Tampilkan Peringatan",
     Callback = function()
-        dropdown:Refresh(playerNames(), {selectedTarget})
-        Rayfield:Notify({ Title = "Refreshed", Content = "Daftar diperbarui", Duration = 2 })
+        playSound(SOUND_IDS.warning, 0.8, false)
+        local stop = createAlertOverlay(Color3.fromRGB(255, 200, 0), warnText)
+        task.delay(3, function()
+            stop()
+        end)
+        Rayfield:Notify({ Title = "📢 Warning", Content = "Peringatan ditampilkan!", Duration = 2 })
     end,
 })
 
-TabSingle:CreateSection("Aksi")
-
-TabSingle:CreateButton({
-    Name = "📍 TP Target ke Posisiku",
+TabWarn:CreateButton({
+    Name = "🔴 Warning Merah Darurat",
     Callback = function()
-        local myHRP = getMyHRP()
-        local t = Players:FindFirstChild(selectedTarget)
-        if not myHRP or not t then
-            Rayfield:Notify({ Title = "Gagal", Content = "Character tidak ditemukan", Duration = 2 })
-            return
-        end
-        tpPlayerTo(t, myHRP.CFrame + Vector3.new(3, 0, 0))
-        Rayfield:Notify({ Title = "✅ TP", Content = selectedTarget .. " diteleport ke kamu", Duration = 2 })
+        playSound(SOUND_IDS.alarm, 0.9, false)
+        local stop = createAlertOverlay(Color3.fromRGB(255, 0, 0), "🔴 " .. warnText .. " 🔴")
+        task.delay(4, function()
+            stop()
+            stopAllSounds()
+        end)
     end,
 })
 
-TabSingle:CreateButton({
-    Name = "🚀 TP Aku ke Target",
+TabWarn:CreateButton({
+    Name = "🟡 Warning Kuning",
     Callback = function()
-        local myHRP = getMyHRP()
-        local t = Players:FindFirstChild(selectedTarget)
-        local tHRP = t and t.Character and t.Character:FindFirstChild("HumanoidRootPart")
-        if not myHRP or not tHRP then
-            Rayfield:Notify({ Title = "Gagal", Content = "Character tidak ditemukan", Duration = 2 })
-            return
-        end
-        myHRP.CFrame = tHRP.CFrame + Vector3.new(3, 0, 0)
-        Rayfield:Notify({ Title = "✅ TP", Content = "Kamu diteleport ke " .. selectedTarget, Duration = 2 })
+        playSound(SOUND_IDS.warning, 0.7, false)
+        local stop = createAlertOverlay(Color3.fromRGB(255, 180, 0), "🟡 " .. warnText .. " 🟡")
+        task.delay(3, function()
+            stop()
+            stopAllSounds()
+        end)
     end,
 })
 
 -- ============================================================
--- WELCOME NOTIF
+-- TAB 4: LIGHTING EFEK
+-- ============================================================
+local TabLight = Window:CreateTab("💡 Lighting", 4483362458)
+
+TabLight:CreateSection("Efek Cahaya Darurat")
+
+local originalAmbient    = Lighting.Ambient
+local originalOutdoor    = Lighting.OutdoorAmbient
+local lightingActive     = false
+local lightingConnection = nil
+
+TabLight:CreateToggle({
+    Name = "🔴 Red Alert Lighting",
+    CurrentValue = false,
+    Flag = "RedLighting",
+    Callback = function(state)
+        if state then
+            lightingActive = true
+            lightingConnection = RunService.Heartbeat:Connect(function()
+                if not lightingActive then return end
+                local t = tick() * 3
+                local intensity = (math.sin(t) + 1) / 2
+                Lighting.Ambient = Color3.fromRGB(
+                    math.floor(150 * intensity), 0, 0
+                )
+                Lighting.OutdoorAmbient = Color3.fromRGB(
+                    math.floor(100 * intensity), 0, 0
+                )
+            end)
+        else
+            lightingActive = false
+            if lightingConnection then
+                lightingConnection:Disconnect()
+                lightingConnection = nil
+            end
+            Lighting.Ambient = originalAmbient
+            Lighting.OutdoorAmbient = originalOutdoor
+        end
+    end,
+})
+
+TabLight:CreateButton({
+    Name = "🔁 Reset Lighting ke Normal",
+    Callback = function()
+        lightingActive = false
+        if lightingConnection then lightingConnection:Disconnect() lightingConnection = nil end
+        Lighting.Ambient = originalAmbient
+        Lighting.OutdoorAmbient = originalOutdoor
+        Rayfield:Notify({ Title = "✅ Reset", Content = "Lighting dikembalikan normal", Duration = 2 })
+    end,
+})
+
+-- ============================================================
+-- WELCOME
 -- ============================================================
 Rayfield:Notify({
-    Title = "✅ TP Tools Aktif",
+    Title = "🚨 Emergency System Aktif",
     Content = "Selamat datang, " .. player.Name,
     Duration = 4,
 })
