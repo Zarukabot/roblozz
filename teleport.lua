@@ -2,152 +2,13 @@
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
---// ==============================
---// 🔐 FULL ADVANCED KEY SYSTEM + GET KEY BUTTON
---// ==============================
-local CONFIG = {
-    ManualKey = "RYUZO-ULTRA-2026", -- ganti sesuai keinginan
-    ExpireDate = os.time({year=2026, month=12, day=31}),
-    MaxAttempts = 3,
-    WhitelistUserIds = { 1234567890 },
-    KeyLink = "https://example.com/getkey"
-}
-
-local function generateDailyKey()
-    local day = os.date("*t").yday
-    local year = os.date("*t").year
-    return "RYUZO-"..year.."-"..day
-end
-
-local DAILY_KEY = generateDailyKey()
-
-for _,id in ipairs(CONFIG.WhitelistUserIds) do
-    if LocalPlayer.UserId == id then
-        _G.KeyUnlocked = true
-        break
-    end
-end
-
-if os.time() > CONFIG.ExpireDate then
-    LocalPlayer:Kick("Script Expired.")
-end
-
--- KEY GUI
-local KeyGui = Instance.new("ScreenGui")
-KeyGui.Name = "UltraKeySystem"
-KeyGui.Parent = game.CoreGui
-KeyGui.ResetOnSpawn = false
-
-local KeyFrame = Instance.new("Frame", KeyGui)
-KeyFrame.Size = UDim2.new(0,320,0,200)
-KeyFrame.Position = UDim2.new(0.5,-160,0.5,-100)
-KeyFrame.BackgroundColor3 = Color3.fromRGB(25,25,30)
-KeyFrame.BorderSizePixel = 0
-KeyFrame.Active = true
-KeyFrame.Draggable = true
-Instance.new("UICorner", KeyFrame).CornerRadius = UDim.new(0,14)
-
-local Title = Instance.new("TextLabel", KeyFrame)
-Title.Size = UDim2.new(1,0,0,40)
-Title.BackgroundTransparency = 1
-Title.Text = "🔐 ULTRA KEY SYSTEM"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
-
-local KeyBox = Instance.new("TextBox", KeyFrame)
-KeyBox.Size = UDim2.new(0.85,0,0,35)
-KeyBox.Position = UDim2.new(0.075,0,0.35,0)
-KeyBox.PlaceholderText = "Enter Key..."
-KeyBox.BackgroundColor3 = Color3.fromRGB(40,40,45)
-KeyBox.TextColor3 = Color3.new(1,1,1)
-KeyBox.Font = Enum.Font.Gotham
-KeyBox.TextSize = 14
-Instance.new("UICorner", KeyBox).CornerRadius = UDim.new(0,10)
-
-local Submit = Instance.new("TextButton", KeyFrame)
-Submit.Size = UDim2.new(0.6,0,0,35)
-Submit.Position = UDim2.new(0.2,0,0.6,0)
-Submit.Text = "Unlock"
-Submit.BackgroundColor3 = Color3.fromRGB(50,120,255)
-Submit.TextColor3 = Color3.new(1,1,1)
-Submit.Font = Enum.Font.GothamBold
-Submit.TextSize = 14
-Instance.new("UICorner", Submit).CornerRadius = UDim.new(0,10)
-
-local GetKey = Instance.new("TextButton", KeyFrame)
-GetKey.Size = UDim2.new(0.6,0,0,30)
-GetKey.Position = UDim2.new(0.2,0,0.85,0)
-GetKey.Text = "🔗 Get Key"
-GetKey.BackgroundColor3 = Color3.fromRGB(80,80,90)
-GetKey.TextColor3 = Color3.new(1,1,1)
-GetKey.Font = Enum.Font.Gotham
-GetKey.TextSize = 13
-Instance.new("UICorner", GetKey).CornerRadius = UDim.new(0,8)
-
--- LOCK MAIN GUI UNTUK TELEPORT
-local function lockMainGUI()
-    if game.CoreGui:FindFirstChild("TeleportUltraGUI") then
-        game.CoreGui.TeleportUltraGUI.Enabled = false
-    end
-end
-
-local function unlockMainGUI()
-    if game.CoreGui:FindFirstChild("TeleportUltraGUI") then
-        game.CoreGui.TeleportUltraGUI.Enabled = true
-    end
-    KeyGui:Destroy()
-end
-
-lockMainGUI()
-
--- VALIDATION
-local Attempts = 0
-local function isValidKey(input)
-    if input == CONFIG.ManualKey or input == DAILY_KEY then
-        return true
-    end
-    return false
-end
-
-Submit.MouseButton1Click:Connect(function()
-    if isValidKey(KeyBox.Text) then
-        _G.KeyUnlocked = true
-        unlockMainGUI()
-    else
-        Attempts += 1
-        Submit.Text = "❌ Wrong ("..Attempts..")"
-        task.wait(1)
-        Submit.Text = "Unlock"
-        if Attempts >= CONFIG.MaxAttempts then
-            LocalPlayer:Kick("Too many wrong key attempts.")
-        end
-    end
-end)
-
-GetKey.MouseButton1Click:Connect(function()
-    if setclipboard then
-        setclipboard(CONFIG.KeyLink)
-        GetKey.Text = "📋 Link Copied!"
-        task.wait(1)
-        GetKey.Text = "🔗 Get Key"
-    else
-        GetKey.Text = "❌ Clipboard Not Supported"
-        task.wait(1)
-        GetKey.Text = "🔗 Get Key"
-    end
-end)
-
-repeat task.wait() until _G.KeyUnlocked == true
-
---// ==============================
---// ⚡ TELEPORT GUI
---// ==============================
+--// GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "TeleportUltraGUI"
 ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
 
+--// MAIN FRAME (LEBIH KECIL)
 local Frame = Instance.new("Frame", ScreenGui)
 Frame.Size = UDim2.new(0,360,0,400)
 Frame.Position = UDim2.new(0.5,-180,0.5,-200)
@@ -157,6 +18,7 @@ Frame.Active = true
 Frame.Draggable = true
 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,16)
 
+-- TITLE
 local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1,-40,0,40)
 Title.Position = UDim2.new(0,10,0,0)
@@ -167,5 +29,152 @@ Title.Font = Enum.Font.GothamBold
 Title.TextSize = 16
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Toggle, Search, Player List, Save Pos, Mini Button dst (tetap seperti script lama)...
--- [Kamu bisa menempel seluruh kode teleport GUI yang sudah kamu punya di sini]
+-- TOGGLE BUTTON (DALAM GUI)
+local CloseBtn = Instance.new("TextButton", Frame)
+CloseBtn.Size = UDim2.new(0,30,0,30)
+CloseBtn.Position = UDim2.new(1,-35,0,5)
+CloseBtn.Text = "-"
+CloseBtn.BackgroundColor3 = Color3.fromRGB(50,120,255)
+CloseBtn.TextColor3 = Color3.new(1,1,1)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 18
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0,8)
+
+-- SEARCH
+local SearchBox = Instance.new("TextBox", Frame)
+SearchBox.Size = UDim2.new(0.9,0,0,35)
+SearchBox.Position = UDim2.new(0.05,0,0,50)
+SearchBox.PlaceholderText = "🔍 Search Player..."
+SearchBox.BackgroundColor3 = Color3.fromRGB(40,40,45)
+SearchBox.TextColor3 = Color3.new(1,1,1)
+SearchBox.Font = Enum.Font.Gotham
+SearchBox.TextSize = 13
+Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0,10)
+
+-- PLAYER LIST
+local PlayerList = Instance.new("ScrollingFrame", Frame)
+PlayerList.Size = UDim2.new(0.9,0,0,130)
+PlayerList.Position = UDim2.new(0.05,0,0,95)
+PlayerList.ScrollBarThickness = 5
+PlayerList.BackgroundTransparency = 1
+PlayerList.CanvasSize = UDim2.new(0,0,0,0)
+
+local Layout = Instance.new("UIListLayout", PlayerList)
+Layout.Padding = UDim.new(0,5)
+
+-- SAVE POSITION BUTTON
+local SaveButton = Instance.new("TextButton", Frame)
+SaveButton.Size = UDim2.new(0.9,0,0,35)
+SaveButton.Position = UDim2.new(0.05,0,0,235)
+SaveButton.Text = "💾 Save Position"
+SaveButton.BackgroundColor3 = Color3.fromRGB(50,120,255)
+SaveButton.TextColor3 = Color3.new(1,1,1)
+SaveButton.Font = Enum.Font.GothamBold
+SaveButton.TextSize = 13
+Instance.new("UICorner", SaveButton).CornerRadius = UDim.new(0,10)
+
+-- SAVED LIST
+local SavedList = Instance.new("ScrollingFrame", Frame)
+SavedList.Size = UDim2.new(0.9,0,0,90)
+SavedList.Position = UDim2.new(0.05,0,0,280)
+SavedList.ScrollBarThickness = 5
+SavedList.BackgroundTransparency = 1
+SavedList.CanvasSize = UDim2.new(0,0,0,0)
+
+local SavedLayout = Instance.new("UIListLayout", SavedList)
+SavedLayout.Padding = UDim.new(0,5)
+
+-- MINI BUTTON (SAAT DITUTUP)
+local MiniButton = Instance.new("TextButton", ScreenGui)
+MiniButton.Size = UDim2.new(0,110,0,35)
+MiniButton.Position = UDim2.new(0,20,0.5,0)
+MiniButton.Text = "⚡ Open"
+MiniButton.BackgroundColor3 = Color3.fromRGB(50,120,255)
+MiniButton.TextColor3 = Color3.new(1,1,1)
+MiniButton.Visible = false
+Instance.new("UICorner", MiniButton).CornerRadius = UDim.new(0,12)
+
+-- TELEPORT
+local function teleportTo(pos)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+    end
+end
+
+-- UPDATE PLAYER LIST
+local function updatePlayers(filter)
+
+    for _,v in pairs(PlayerList:GetChildren()) do
+        if v:IsA("TextButton") then
+            v:Destroy()
+        end
+    end
+
+    for _,player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            if not filter or string.find(string.lower(player.Name), string.lower(filter), 1, true) then
+
+                local btn = Instance.new("TextButton", PlayerList)
+                btn.Size = UDim2.new(1,-5,0,30)
+                btn.Text = "👤 "..player.Name
+                btn.BackgroundColor3 = Color3.fromRGB(40,40,45)
+                btn.TextColor3 = Color3.new(1,1,1)
+                btn.Font = Enum.Font.Gotham
+                btn.TextSize = 12
+                Instance.new("UICorner", btn).CornerRadius = UDim.new(0,8)
+
+                btn.MouseButton1Click:Connect(function()
+                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        teleportTo(player.Character.HumanoidRootPart.Position)
+                    end
+                end)
+            end
+        end
+    end
+
+    task.wait()
+    PlayerList.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y+5)
+end
+
+updatePlayers()
+
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    updatePlayers(SearchBox.Text)
+end)
+
+Players.PlayerAdded:Connect(updatePlayers)
+Players.PlayerRemoving:Connect(updatePlayers)
+
+-- SAVE POSITION
+SaveButton.MouseButton1Click:Connect(function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local pos = LocalPlayer.Character.HumanoidRootPart.Position
+
+        local btn = Instance.new("TextButton", SavedList)
+        btn.Size = UDim2.new(1,-5,0,30)
+        btn.Text = "📌 "..math.floor(pos.X)..","..math.floor(pos.Y)..","..math.floor(pos.Z)
+        btn.BackgroundColor3 = Color3.fromRGB(60,60,70)
+        btn.TextColor3 = Color3.new(1,1,1)
+        btn.Font = Enum.Font.Gotham
+        btn.TextSize = 12
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0,8)
+
+        btn.MouseButton1Click:Connect(function()
+            teleportTo(pos)
+        end)
+
+        task.wait()
+        SavedList.CanvasSize = UDim2.new(0,0,0,SavedLayout.AbsoluteContentSize.Y+5)
+    end
+end)
+
+-- TOGGLE SYSTEM
+CloseBtn.MouseButton1Click:Connect(function()
+    Frame.Visible = false
+    MiniButton.Visible = true
+end)
+
+MiniButton.MouseButton1Click:Connect(function()
+    Frame.Visible = true
+    MiniButton.Visible = false
+end)
