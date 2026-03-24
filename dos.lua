@@ -1,97 +1,134 @@
 --// SERVICES
 local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Stats = game:GetService("Stats")
+
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-local root = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
 
---// STATE
-local AUTO = false
-local DELAY = 0.25
-local collectedCount = 0
-local touchedItems = {}
+--------------------------------------------------
+-- STATE
+--------------------------------------------------
 
---// GUI
+local PERFORMANCE_MODE = false
+local animationSpeed = 2
+
+--------------------------------------------------
+-- GUI
+--------------------------------------------------
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
 
 local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.new(0, 220, 0, 150)
+Frame.Size = UDim2.new(0, 260, 0, 160)
 Frame.Position = UDim2.new(0.05, 0, 0.3, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+Frame.BackgroundColor3 = Color3.fromRGB(15,15,15)
 Frame.Active = true
 Frame.Draggable = true
+
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,12)
 
 local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1,0,0,30)
 Title.BackgroundTransparency = 1
-Title.Text = "AUTO COLLECT"
+Title.Text = "🔥 EXTREME MODE"
 Title.TextColor3 = Color3.new(1,1,1)
 Title.TextScaled = true
 
 local Toggle = Instance.new("TextButton", Frame)
 Toggle.Size = UDim2.new(0.8,0,0,40)
-Toggle.Position = UDim2.new(0.1,0,0.35,0)
+Toggle.Position = UDim2.new(0.1,0,0.3,0)
 Toggle.BackgroundColor3 = Color3.fromRGB(170,0,0)
 Toggle.Text = "OFF"
 Toggle.TextScaled = true
 Toggle.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0,8)
 
-local CounterLabel = Instance.new("TextLabel", Frame)
-CounterLabel.Size = UDim2.new(1,0,0,30)
-CounterLabel.Position = UDim2.new(0,0,0.75,0)
-CounterLabel.BackgroundTransparency = 1
-CounterLabel.TextColor3 = Color3.new(1,1,1)
-CounterLabel.TextScaled = true
-CounterLabel.Text = "Collected: 0"
+local FPSLabel = Instance.new("TextLabel", Frame)
+FPSLabel.Size = UDim2.new(1,0,0,30)
+FPSLabel.Position = UDim2.new(0,0,0.7,0)
+FPSLabel.BackgroundTransparency = 1
+FPSLabel.TextColor3 = Color3.new(1,1,1)
+FPSLabel.TextScaled = true
+FPSLabel.Text = "FPS: ..."
 
---// DETECT ITEM
-local function isCollectable(obj)
-    if obj:IsA("BasePart") then
-        if obj:FindFirstChild("TouchInterest")
-        or string.find(string.lower(obj.Name), "coin")
-        or string.find(string.lower(obj.Name), "gem")
-        or string.find(string.lower(obj.Name), "collect")
-        then
-            return true
+--------------------------------------------------
+-- FPS BOOST FUNCTION
+--------------------------------------------------
+
+local function enablePerformance()
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 9e9
+
+    for _, v in pairs(Lighting:GetDescendants()) do
+        if v:IsA("PostEffect") then
+            v.Enabled = false
         end
     end
-    return false
+
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.Material = Enum.Material.Plastic
+            v.Reflectance = 0
+        end
+    end
+
+    humanoid.WalkSpeed = 22
+    humanoid.JumpPower = 65
 end
 
---// AUTO COLLECT LOOP
-task.spawn(function()
-    while true do
-        if AUTO then
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if isCollectable(obj) and obj.Parent then
-                    if not touchedItems[obj] then
-                        firetouchinterest(root, obj, 0)
-                        firetouchinterest(root, obj, 1)
+local function disablePerformance()
+    humanoid.WalkSpeed = 16
+    humanoid.JumpPower = 50
+end
 
-                        touchedItems[obj] = true
-                        collectedCount += 1
-                        CounterLabel.Text = "Collected: " .. collectedCount
-                    end
-                end
-            end
-        end
-        task.wait(DELAY)
+--------------------------------------------------
+-- FAST ANIMATION
+--------------------------------------------------
+
+local function applyAnimationBoost()
+    humanoid.AnimationPlayed:Connect(function(track)
+        track:AdjustSpeed(animationSpeed)
+    end)
+end
+
+applyAnimationBoost()
+
+--------------------------------------------------
+-- FPS MONITOR
+--------------------------------------------------
+
+local last = tick()
+local frames = 0
+
+RunService.RenderStepped:Connect(function()
+    frames += 1
+    if tick() - last >= 1 then
+        FPSLabel.Text = "FPS: " .. frames
+        frames = 0
+        last = tick()
     end
 end)
 
---// TOGGLE BUTTON
+--------------------------------------------------
+-- TOGGLE BUTTON
+--------------------------------------------------
+
 Toggle.MouseButton1Click:Connect(function()
-    AUTO = not AUTO
-    if AUTO then
+    PERFORMANCE_MODE = not PERFORMANCE_MODE
+
+    if PERFORMANCE_MODE then
+        enablePerformance()
         Toggle.Text = "ON"
         Toggle.BackgroundColor3 = Color3.fromRGB(0,170,0)
-
-        -- reset counter saat dinyalakan
-        collectedCount = 0
-        touchedItems = {}
-        CounterLabel.Text = "Collected: 0"
     else
+        disablePerformance()
         Toggle.Text = "OFF"
         Toggle.BackgroundColor3 = Color3.fromRGB(170,0,0)
     end
