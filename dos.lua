@@ -1,11 +1,12 @@
 --// ============================================================
---// ADMIN PANEL — RAYFIELD EDITION
---// Cara pasang: Paste di executor
+--// TP ALL PLAYERS — RAYFIELD EDITION
+--// Cara pakai: Paste di executor
 --// ⚠️ Ganti ADMIN_NAME dengan username Roblox kamu!
 --// ============================================================
 
-local Players   = game:GetService("Players")
-local player    = Players.LocalPlayer
+local Players    = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player     = Players.LocalPlayer
 
 --// ⚠️ GANTI INI
 local ADMIN_NAME = "NamaKamuDisini"
@@ -18,46 +19,190 @@ end
 --// Load Rayfield
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
---// Buat Window
 local Window = Rayfield:CreateWindow({
-    Name = "⚡ Admin Panel",
-    LoadingTitle = "Admin Panel",
+    Name = "📍 TP All Players",
+    LoadingTitle = "TP Tools",
     LoadingSubtitle = "by " .. ADMIN_NAME,
     Theme = "Default",
     DisableRayfieldPrompts = false,
-    DisableBuildWarnings = false,
-    ConfigurationSaving = {
-        Enabled = false,
-    },
+    ConfigurationSaving = { Enabled = false },
     KeySystem = false,
 })
 
 -- ============================================================
--- TARGET PLAYER (disimpan di variable)
+-- HELPER
 -- ============================================================
-local selectedTarget = player.Name -- default diri sendiri
-
-local function getTargetPlayer()
-    return Players:FindFirstChild(selectedTarget)
+local function getMyHRP()
+    return player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 end
 
-local function getTargetChar()
-    local t = getTargetPlayer()
-    if t and t.Character then return t.Character end
-    return nil
+local function tpPlayerTo(target, cframe)
+    local hrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CFrame = cframe
+    end
 end
 
-local function getHumanoid()
-    local char = getTargetChar()
-    if char then return char:FindFirstChildOfClass("Humanoid") end
-    return nil
-end
+-- ============================================================
+-- TAB: TP ALL
+-- ============================================================
+local Tab = Window:CreateTab("📍 TP All Players", 4483362458)
 
-local function getHRP()
-    local char = getTargetChar()
-    if char then return char:FindFirstChild("HumanoidRootPart") end
-    return nil
-end
+Tab:CreateSection("Teleport Semua Player")
+
+-- TP semua ke posisi kamu
+Tab:CreateButton({
+    Name = "👥 TP Semua Player ke Posisiku",
+    Callback = function()
+        local myHRP = getMyHRP()
+        if not myHRP then
+            Rayfield:Notify({ Title = "Gagal", Content = "Character kamu tidak ditemukan", Duration = 3 })
+            return
+        end
+        local count = 0
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player then
+                local offset = Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
+                tpPlayerTo(p, myHRP.CFrame + offset)
+                count += 1
+            end
+        end
+        Rayfield:Notify({
+            Title = "✅ Selesai",
+            Content = count .. " player diteleport ke posisimu",
+            Duration = 3,
+        })
+    end,
+})
+
+-- TP semua ke koordinat custom
+Tab:CreateSection("TP ke Koordinat Custom")
+
+local inputX, inputY, inputZ = 0, 0, 0
+
+Tab:CreateInput({
+    Name = "X",
+    PlaceholderText = "Masukkan X (contoh: 100)",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(val)
+        inputX = tonumber(val) or 0
+    end,
+})
+
+Tab:CreateInput({
+    Name = "Y",
+    PlaceholderText = "Masukkan Y (contoh: 10)",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(val)
+        inputY = tonumber(val) or 0
+    end,
+})
+
+Tab:CreateInput({
+    Name = "Z",
+    PlaceholderText = "Masukkan Z (contoh: 200)",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(val)
+        inputZ = tonumber(val) or 0
+    end,
+})
+
+Tab:CreateButton({
+    Name = "🚀 TP Semua ke Koordinat ini",
+    Callback = function()
+        local targetCFrame = CFrame.new(inputX, inputY, inputZ)
+        local count = 0
+        for _, p in ipairs(Players:GetPlayers()) do
+            local offset = Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
+            tpPlayerTo(p, targetCFrame + offset)
+            count += 1
+        end
+        Rayfield:Notify({
+            Title = "✅ Selesai",
+            Content = count .. " player diteleport ke (" .. inputX .. ", " .. inputY .. ", " .. inputZ .. ")",
+            Duration = 4,
+        })
+    end,
+})
+
+-- TP semua ke SpawnLocation
+Tab:CreateSection("TP ke Spawn")
+
+Tab:CreateButton({
+    Name = "🏁 TP Semua ke SpawnLocation",
+    Callback = function()
+        local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
+        if not spawn then
+            Rayfield:Notify({ Title = "Gagal", Content = "SpawnLocation tidak ditemukan di workspace", Duration = 3 })
+            return
+        end
+        local count = 0
+        for _, p in ipairs(Players:GetPlayers()) do
+            local offset = Vector3.new(math.random(-6, 6), 0, math.random(-6, 6))
+            tpPlayerTo(p, spawn.CFrame + offset + Vector3.new(0, 3, 0))
+            count += 1
+        end
+        Rayfield:Notify({
+            Title = "✅ Selesai",
+            Content = count .. " player diteleport ke Spawn",
+            Duration = 3,
+        })
+    end,
+})
+
+-- TP semua saling scatter (random di area luas)
+Tab:CreateSection("Scatter / Acak")
+
+Tab:CreateButton({
+    Name = "💥 Scatter Semua Player (Random)",
+    Callback = function()
+        local myHRP = getMyHRP()
+        local base = myHRP and myHRP.Position or Vector3.new(0, 10, 0)
+        local count = 0
+        for _, p in ipairs(Players:GetPlayers()) do
+            local randomOffset = Vector3.new(
+                math.random(-200, 200),
+                math.random(5, 30),
+                math.random(-200, 200)
+            )
+            tpPlayerTo(p, CFrame.new(base + randomOffset))
+            count += 1
+        end
+        Rayfield:Notify({
+            Title = "💥 Scattered!",
+            Content = count .. " player dilempar ke random posisi",
+            Duration = 3,
+        })
+    end,
+})
+
+-- TP semua ke satu titik persis (tumpuk)
+Tab:CreateButton({
+    Name = "📦 Tumpuk Semua Player (1 Titik)",
+    Callback = function()
+        local myHRP = getMyHRP()
+        local base = myHRP and myHRP.CFrame or CFrame.new(0, 10, 0)
+        local count = 0
+        for _, p in ipairs(Players:GetPlayers()) do
+            tpPlayerTo(p, base)
+            count += 1
+        end
+        Rayfield:Notify({
+            Title = "📦 Ditumpuk!",
+            Content = count .. " player ditumpuk di satu titik",
+            Duration = 3,
+        })
+    end,
+})
+
+-- ============================================================
+-- TAB: TP SATU PLAYER
+-- ============================================================
+local TabSingle = Window:CreateTab("👤 TP Single Player", 4483362458)
+
+TabSingle:CreateSection("Pilih Target")
+
+local selectedTarget = player.Name
 
 local function playerNames()
     local names = {}
@@ -67,321 +212,61 @@ local function playerNames()
     return names
 end
 
--- ============================================================
--- TAB 1: TARGET
--- ============================================================
-local TabTarget = Window:CreateTab("👤 Target", 4483362458)
-
-TabTarget:CreateSection("Pilih Target Player")
-
-local targetDropdown = TabTarget:CreateDropdown({
+local dropdown = TabSingle:CreateDropdown({
     Name = "Target Player",
     Options = playerNames(),
     CurrentOption = {player.Name},
     MultipleOptions = false,
-    Flag = "TargetPlayer",
+    Flag = "SingleTarget",
     Callback = function(option)
         selectedTarget = option[1] or player.Name
-        Rayfield:Notify({
-            Title = "Target dipilih",
-            Content = "Target: " .. selectedTarget,
-            Duration = 2,
-        })
     end,
 })
 
--- Refresh daftar player
-TabTarget:CreateButton({
-    Name = "🔄 Refresh Daftar Player",
+TabSingle:CreateButton({
+    Name = "🔄 Refresh Daftar",
     Callback = function()
-        targetDropdown:Refresh(playerNames(), {player.Name})
-        Rayfield:Notify({
-            Title = "Refreshed",
-            Content = "Daftar player diperbarui",
-            Duration = 2,
-        })
+        dropdown:Refresh(playerNames(), {selectedTarget})
+        Rayfield:Notify({ Title = "Refreshed", Content = "Daftar diperbarui", Duration = 2 })
     end,
 })
 
-Players.PlayerAdded:Connect(function()
-    task.wait(0.5)
-    targetDropdown:Refresh(playerNames(), {selectedTarget})
-end)
-Players.PlayerRemoving:Connect(function()
-    task.wait(0.5)
-    targetDropdown:Refresh(playerNames(), {player.Name})
-    selectedTarget = player.Name
-end)
+TabSingle:CreateSection("Aksi")
 
--- ============================================================
--- TAB 2: PLAYER ACTIONS
--- ============================================================
-local TabActions = Window:CreateTab("🎮 Actions", 4483362458)
-
-TabActions:CreateSection("Teleport")
-
-TabActions:CreateButton({
-    Name = "📍 Teleport Target ke Aku",
+TabSingle:CreateButton({
+    Name = "📍 TP Target ke Posisiku",
     Callback = function()
-        local myHRP  = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        local tgtHRP = getHRP()
-        if myHRP and tgtHRP then
-            tgtHRP.CFrame = myHRP.CFrame + Vector3.new(3, 0, 0)
-            Rayfield:Notify({ Title = "Teleport", Content = selectedTarget .. " diteleport ke kamu", Duration = 2 })
-        else
+        local myHRP = getMyHRP()
+        local t = Players:FindFirstChild(selectedTarget)
+        if not myHRP or not t then
             Rayfield:Notify({ Title = "Gagal", Content = "Character tidak ditemukan", Duration = 2 })
+            return
         end
+        tpPlayerTo(t, myHRP.CFrame + Vector3.new(3, 0, 0))
+        Rayfield:Notify({ Title = "✅ TP", Content = selectedTarget .. " diteleport ke kamu", Duration = 2 })
     end,
 })
 
-TabActions:CreateButton({
-    Name = "🚀 Teleport Aku ke Target",
+TabSingle:CreateButton({
+    Name = "🚀 TP Aku ke Target",
     Callback = function()
-        local myHRP  = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        local tgtHRP = getHRP()
-        if myHRP and tgtHRP then
-            myHRP.CFrame = tgtHRP.CFrame + Vector3.new(3, 0, 0)
-            Rayfield:Notify({ Title = "Teleport", Content = "Kamu diteleport ke " .. selectedTarget, Duration = 2 })
-        else
+        local myHRP = getMyHRP()
+        local t = Players:FindFirstChild(selectedTarget)
+        local tHRP = t and t.Character and t.Character:FindFirstChild("HumanoidRootPart")
+        if not myHRP or not tHRP then
             Rayfield:Notify({ Title = "Gagal", Content = "Character tidak ditemukan", Duration = 2 })
+            return
         end
-    end,
-})
-
-TabActions:CreateSection("Freeze & Reset")
-
-local frozenState = false
-TabActions:CreateToggle({
-    Name = "🧊 Freeze Target",
-    CurrentValue = false,
-    Flag = "FreezeToggle",
-    Callback = function(state)
-        local hrp = getHRP()
-        if hrp then
-            hrp.Anchored = state
-            frozenState = state
-            Rayfield:Notify({
-                Title = state and "Frozen" or "Unfrozen",
-                Content = selectedTarget .. (state and " di-freeze" or " di-unfreeze"),
-                Duration = 2,
-            })
-        end
-    end,
-})
-
-TabActions:CreateButton({
-    Name = "💀 Reset / Kill Target",
-    Callback = function()
-        local hum = getHumanoid()
-        if hum then
-            hum.Health = 0
-            Rayfield:Notify({ Title = "Reset", Content = selectedTarget .. " di-reset", Duration = 2 })
-        else
-            Rayfield:Notify({ Title = "Gagal", Content = "Humanoid tidak ditemukan", Duration = 2 })
-        end
+        myHRP.CFrame = tHRP.CFrame + Vector3.new(3, 0, 0)
+        Rayfield:Notify({ Title = "✅ TP", Content = "Kamu diteleport ke " .. selectedTarget, Duration = 2 })
     end,
 })
 
 -- ============================================================
--- TAB 3: SPEED & JUMP
--- ============================================================
-local TabStats = Window:CreateTab("⚡ Speed & Jump", 4483362458)
-
-TabStats:CreateSection("WalkSpeed")
-
-TabStats:CreateSlider({
-    Name = "⚡ Speed Target",
-    Range = {0, 500},
-    Increment = 1,
-    Suffix = "",
-    CurrentValue = 16,
-    Flag = "SpeedSlider",
-    Callback = function(val)
-        local hum = getHumanoid()
-        if hum then
-            hum.WalkSpeed = val
-        end
-    end,
-})
-
-TabStats:CreateButton({
-    Name = "🔁 Reset Speed ke Default (16)",
-    Callback = function()
-        local hum = getHumanoid()
-        if hum then
-            hum.WalkSpeed = 16
-            Rayfield:Notify({ Title = "Reset", Content = "Speed dikembalikan ke 16", Duration = 2 })
-        end
-    end,
-})
-
-TabStats:CreateSection("JumpPower")
-
-TabStats:CreateSlider({
-    Name = "🦘 Jump Power Target",
-    Range = {0, 500},
-    Increment = 1,
-    Suffix = "",
-    CurrentValue = 50,
-    Flag = "JumpSlider",
-    Callback = function(val)
-        local hum = getHumanoid()
-        if hum then
-            hum.JumpPower = val
-        end
-    end,
-})
-
-TabStats:CreateButton({
-    Name = "🔁 Reset Jump ke Default (50)",
-    Callback = function()
-        local hum = getHumanoid()
-        if hum then
-            hum.JumpPower = 50
-            Rayfield:Notify({ Title = "Reset", Content = "Jump dikembalikan ke 50", Duration = 2 })
-        end
-    end,
-})
-
--- ============================================================
--- TAB 4: SELF (untuk diri sendiri)
--- ============================================================
-local TabSelf = Window:CreateTab("🧍 Self", 4483362458)
-
-TabSelf:CreateSection("Cheat Diri Sendiri")
-
-TabSelf:CreateToggle({
-    Name = "🌊 Infinite Jump",
-    CurrentValue = false,
-    Flag = "InfJump",
-    Callback = function(state)
-        _G.InfJump = state
-        if state then
-            game:GetService("UserInputService").JumpRequest:Connect(function()
-                if _G.InfJump then
-                    local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-                    if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
-                end
-            end)
-        end
-    end,
-})
-
-TabSelf:CreateToggle({
-    Name = "🏃 Speed Boost (x3)",
-    CurrentValue = false,
-    Flag = "SelfSpeed",
-    Callback = function(state)
-        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum.WalkSpeed = state and 48 or 16
-        end
-    end,
-})
-
-TabSelf:CreateToggle({
-    Name = "🦅 Fly Mode",
-    CurrentValue = false,
-    Flag = "FlyMode",
-    Callback = function(state)
-        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-        if not hrp or not hum then return end
-
-        if state then
-            hum.PlatformStand = true
-            local bg = Instance.new("BodyGyro", hrp)
-            bg.Name = "FlyGyro"
-            bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
-            bg.P = 9e4
-            local bv = Instance.new("BodyVelocity", hrp)
-            bv.Name = "FlyVelocity"
-            bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-            bv.Velocity = Vector3.zero
-
-            local UIS = game:GetService("UserInputService")
-            local cam = workspace.CurrentCamera
-
-            game:GetService("RunService").RenderStepped:Connect(function()
-                if not _G.FlyActive then return end
-                local dir = Vector3.zero
-                if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
-                if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
-                if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
-                if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
-                if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0,1,0) end
-                if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0,1,0) end
-                bv.Velocity = dir * 60
-                bg.CFrame = cam.CFrame
-            end)
-            _G.FlyActive = true
-        else
-            _G.FlyActive = false
-            hum.PlatformStand = false
-            if hrp:FindFirstChild("FlyGyro")    then hrp.FlyGyro:Destroy() end
-            if hrp:FindFirstChild("FlyVelocity") then hrp.FlyVelocity:Destroy() end
-        end
-    end,
-})
-
-TabSelf:CreateButton({
-    Name = "❤️ Full Heal Diri Sendiri",
-    Callback = function()
-        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum.Health = hum.MaxHealth
-            Rayfield:Notify({ Title = "Healed", Content = "HP penuh!", Duration = 2 })
-        end
-    end,
-})
-
--- ============================================================
--- TAB 5: INFO
--- ============================================================
-local TabInfo = Window:CreateTab("📊 Info", 4483362458)
-
-TabInfo:CreateSection("Server Info")
-
-TabInfo:CreateButton({
-    Name = "📋 Lihat Info Server",
-    Callback = function()
-        local playerList = ""
-        for _, p in ipairs(Players:GetPlayers()) do
-            playerList = playerList .. p.Name .. ", "
-        end
-        Rayfield:Notify({
-            Title = "Server Info",
-            Content = string.format(
-                "Players: %d/%d\nJob ID: %s",
-                #Players:GetPlayers(),
-                Players.MaxPlayers,
-                game.JobId ~= "" and string.sub(game.JobId, 1, 8) .. "..." or "Studio"
-            ),
-            Duration = 6,
-        })
-    end,
-})
-
-TabInfo:CreateButton({
-    Name = "📋 Lihat Semua Player",
-    Callback = function()
-        local list = ""
-        for i, p in ipairs(Players:GetPlayers()) do
-            list = list .. i .. ". " .. p.Name .. "\n"
-        end
-        Rayfield:Notify({
-            Title = "Player List (" .. #Players:GetPlayers() .. ")",
-            Content = list,
-            Duration = 8,
-        })
-    end,
-})
-
--- ============================================================
--- NOTIF SELAMAT DATANG
+-- WELCOME NOTIF
 -- ============================================================
 Rayfield:Notify({
-    Title = "✅ Admin Panel Aktif",
-    Content = "Selamat datang, " .. player.Name .. "!",
+    Title = "✅ TP Tools Aktif",
+    Content = "Selamat datang, " .. player.Name,
     Duration = 4,
 })
