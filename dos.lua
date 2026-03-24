@@ -3,10 +3,11 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
 
 --// GUI SETUP
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RemoteToolkitFULL"
+ScreenGui.Name = "RemoteToolkitNeon"
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 ScreenGui.ResetOnSpawn = false
 
@@ -14,11 +15,10 @@ ScreenGui.ResetOnSpawn = false
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Size = UDim2.new(0, 500, 0, 600)
 MainFrame.Position = UDim2.new(0.5, -250, 0.5, -300)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+MainFrame.BackgroundColor3 = Color3.fromRGB(10,10,10)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
-
 local UICorner = Instance.new("UICorner", MainFrame)
 UICorner.CornerRadius = UDim.new(0,12)
 
@@ -26,8 +26,8 @@ UICorner.CornerRadius = UDim.new(0,12)
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1,0,0,50)
 Title.BackgroundTransparency = 1
-Title.Text = "⚡ Remote Toolkit FULL"
-Title.TextColor3 = Color3.fromRGB(255,255,255)
+Title.Text = "🌐 Remote Toolkit NEON"
+Title.TextColor3 = Color3.fromRGB(0,255,255)
 Title.TextScaled = true
 Title.Font = Enum.Font.GothamBold
 
@@ -36,8 +36,8 @@ local SearchBox = Instance.new("TextBox", MainFrame)
 SearchBox.Size = UDim2.new(1,-20,0,35)
 SearchBox.Position = UDim2.new(0,10,0,55)
 SearchBox.PlaceholderText = "Search Remote..."
-SearchBox.BackgroundColor3 = Color3.fromRGB(35,35,35)
-SearchBox.TextColor3 = Color3.new(1,1,1)
+SearchBox.BackgroundColor3 = Color3.fromRGB(20,20,20)
+SearchBox.TextColor3 = Color3.fromRGB(0,255,255)
 SearchBox.ClearTextOnFocus = false
 SearchBox.Font = Enum.Font.Gotham
 SearchBox.TextScaled = true
@@ -59,8 +59,8 @@ local ParamBox = Instance.new("TextBox", MainFrame)
 ParamBox.Size = UDim2.new(1,-20,0,35)
 ParamBox.Position = UDim2.new(0,10,0,405)
 ParamBox.PlaceholderText = 'Parameters (comma separated, e.g. "Hello,100,true")'
-ParamBox.BackgroundColor3 = Color3.fromRGB(35,35,35)
-ParamBox.TextColor3 = Color3.new(1,1,1)
+ParamBox.BackgroundColor3 = Color3.fromRGB(20,20,20)
+ParamBox.TextColor3 = Color3.fromRGB(0,255,255)
 ParamBox.ClearTextOnFocus = false
 ParamBox.Font = Enum.Font.Gotham
 ParamBox.TextScaled = true
@@ -71,9 +71,8 @@ ParamCorner.CornerRadius = UDim.new(0,6)
 local LogFrame = Instance.new("ScrollingFrame", MainFrame)
 LogFrame.Position = UDim2.new(0,10,0,450)
 LogFrame.Size = UDim2.new(1,-20,0,120)
-LogFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+LogFrame.BackgroundColor3 = Color3.fromRGB(15,15,15)
 LogFrame.CanvasSize = UDim2.new(0,0,0,0)
-LogFrame.ScrollBarThickness = 6
 local LogList = Instance.new("UIListLayout", LogFrame)
 LogList.Padding = UDim.new(0,2)
 
@@ -82,8 +81,8 @@ local RefreshButton = Instance.new("TextButton", MainFrame)
 RefreshButton.Size = UDim2.new(0.48,-15,0,35)
 RefreshButton.Position = UDim2.new(0,10,1,-45)
 RefreshButton.Text = "🔄 Refresh"
-RefreshButton.BackgroundColor3 = Color3.fromRGB(45,45,45)
-RefreshButton.TextColor3 = Color3.new(1,1,1)
+RefreshButton.BackgroundColor3 = Color3.fromRGB(0,50,50)
+RefreshButton.TextColor3 = Color3.fromRGB(0,255,255)
 RefreshButton.Font = Enum.Font.Gotham
 RefreshButton.TextScaled = true
 local RefreshCorner = Instance.new("UICorner", RefreshButton)
@@ -93,8 +92,8 @@ local CollapseButton = Instance.new("TextButton", MainFrame)
 CollapseButton.Size = UDim2.new(0.48,-15,0,35)
 CollapseButton.Position = UDim2.new(0.52,5,1,-45)
 CollapseButton.Text = "🗕 Collapse"
-CollapseButton.BackgroundColor3 = Color3.fromRGB(45,45,45)
-CollapseButton.TextColor3 = Color3.new(1,1,1)
+CollapseButton.BackgroundColor3 = Color3.fromRGB(0,50,50)
+CollapseButton.TextColor3 = Color3.fromRGB(0,255,255)
 CollapseButton.Font = Enum.Font.Gotham
 CollapseButton.TextScaled = true
 local CollapseCorner = Instance.new("UICorner", CollapseButton)
@@ -120,11 +119,11 @@ local function logMessage(msg,typeStr)
 	textLabel.TextScaled = true
 	textLabel.Font = Enum.Font.Gotham
 	if typeStr=="INFO" then
-		textLabel.TextColor3 = Color3.fromRGB(200,200,200)
+		textLabel.TextColor3 = Color3.fromRGB(0,255,255)
 	elseif typeStr=="RETURN" then
-		textLabel.TextColor3 = Color3.fromRGB(100,255,100)
+		textLabel.TextColor3 = Color3.fromRGB(0,255,100)
 	elseif typeStr=="EVENT" then
-		textLabel.TextColor3 = Color3.fromRGB(100,200,255)
+		textLabel.TextColor3 = Color3.fromRGB(0,150,255)
 	else
 		textLabel.TextColor3 = Color3.fromRGB(255,255,255)
 	end
@@ -164,14 +163,23 @@ local function loadRemotes()
 			local btn = Instance.new("TextButton")
 			btn.Size = UDim2.new(1,0,0,40)
 			btn.Text = remote.Name.." ["..remote.ClassName.."]"
-			btn.BackgroundColor3 = Color3.fromRGB(35,35,35)
-			btn.TextColor3 = Color3.new(1,1,1)
+			btn.BackgroundColor3 = Color3.fromRGB(0,40,40)
+			btn.TextColor3 = Color3.fromRGB(0,255,255)
 			btn.Font = Enum.Font.Gotham
 			btn.TextScaled = true
 			btn.Parent = ScrollFrame
 			local corner = Instance.new("UICorner",btn)
 			corner.CornerRadius = UDim.new(0,6)
 			
+			-- Hover glow
+			btn.MouseEnter:Connect(function()
+				btn.BackgroundColor3 = Color3.fromRGB(0,100,100)
+			end)
+			btn.MouseLeave:Connect(function()
+				btn.BackgroundColor3 = Color3.fromRGB(0,40,40)
+			end)
+			
+			-- Left click → Fire/Invoke
 			btn.MouseButton1Click:Connect(function()
 				local ok,err = pcall(function()
 					local params = parseParams(ParamBox.Text)
@@ -186,6 +194,12 @@ local function loadRemotes()
 				if not ok then
 					logMessage("Error firing remote: "..err,"INFO")
 				end
+			end)
+			
+			-- Right click → Copy path
+			btn.MouseButton2Click:Connect(function()
+				setclipboard(remote:GetFullName())
+				logMessage("Copied path: "..remote:GetFullName(),"INFO")
 			end)
 			
 			remoteButtons[remote] = btn
@@ -207,6 +221,14 @@ for _, remote in pairs(ReplicatedStorage:GetDescendants()) do
 		end)
 	end
 end
+
+-- Auto Refresh every 5 sec
+spawn(function()
+	while true do
+		loadRemotes()
+		wait(5)
+	end
+end)
 
 -- Initial load
 loadRemotes()
