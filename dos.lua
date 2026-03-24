@@ -1,339 +1,220 @@
 --// ============================================================
---// EMERGENCY ALARM SYSTEM — RAYFIELD EDITION
---// Efek suara darurat + visual alert untuk semua player
---// Cara pakai: Paste di executor
---// ⚠️ Ganti ADMIN_NAME dengan username Roblox kamu!
+--// FREEZE TOOL — EXECUTOR EDITION
+--// Pure LocalScript, tidak butuh library external
+--// ⚠️ Hanya bekerja di game MILIK KAMU SENDIRI
+--//    yang sudah ada FreezeHandler ServerScript-nya
 --// ============================================================
 
-local Players        = game:GetService("Players")
-local TweenService   = game:GetService("TweenService")
-local RunService     = game:GetService("RunService")
-local Lighting       = game:GetService("Lighting")
-local player         = Players.LocalPlayer
+local Players    = game:GetService("Players")
+local RepStorage = game:GetService("ReplicatedStorage")
+local player     = Players.LocalPlayer
 
---// ⚠️ GANTI INI
-local ADMIN_NAME = "Ryuzooaja"
-
-if player.Name ~= ADMIN_NAME then
-    warn("Bukan admin, script berhenti.")
+-- Cek RemoteEvents
+local remotes = RepStorage:FindFirstChild("AdminRemotes")
+if not remotes then
+    warn("[FreezeGUI] AdminRemotes tidak ditemukan! Pastikan ServerScript sudah dipasang.")
     return
 end
 
---// Load Rayfield
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+local FreezePlayer   = remotes:FindFirstChild("FreezePlayer")
+local UnfreezePlayer = remotes:FindFirstChild("UnfreezePlayer")
+local FreezeAll      = remotes:FindFirstChild("FreezeAll")
+local UnfreezeAll    = remotes:FindFirstChild("UnfreezeAll")
+local GetFrozenList  = remotes:FindFirstChild("GetFrozenList")
 
-local Window = Rayfield:CreateWindow({
-    Name = "🚨 Emergency System",
-    LoadingTitle = "Emergency Tools",
-    LoadingSubtitle = "by " .. ADMIN_NAME,
-    Theme = "Default",
-    DisableRayfieldPrompts = false,
-    ConfigurationSaving = { Enabled = false },
-    KeySystem = false,
-})
-
--- ============================================================
--- VARIABLES
--- ============================================================
-local alarmActive     = false
-local alarmConnection = nil
-local sounds          = {}
-local gui             = player:WaitForChild("PlayerGui")
-
--- Sound IDs Roblox built-in (bebas pakai)
-local SOUND_IDS = {
-    alarm    = 2865227271,  -- alarm sirine
-    boom     = 130113322,   -- ledakan
-    warning  = 1843198752,  -- warning beep
-    siren    = 138081500,   -- sirine panjang
-}
-
--- ============================================================
--- HELPER: BUAT SOUND DI WORKSPACE
--- ============================================================
-local function playSound(id, volume, looped)
-    local s = Instance.new("Sound", workspace)
-    s.SoundId = "rbxassetid://" .. id
-    s.Volume = volume or 0.8
-    s.Looped = looped or false
-    s:Play()
-    table.insert(sounds, s)
-    return s
-end
-
-local function stopAllSounds()
-    for _, s in pairs(sounds) do
-        if s and s.Parent then
-            s:Stop()
-            s:Destroy()
-        end
-    end
-    sounds = {}
+if not FreezePlayer then
+    warn("[FreezeGUI] RemoteEvents tidak lengkap!")
+    return
 end
 
 -- ============================================================
--- VISUAL ALERT (merah flash di layar)
+-- GUI
 -- ============================================================
-local alertGui = nil
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "FreezeExecutor"
+gui.ResetOnSpawn = false
 
-local function createAlertOverlay(color, text)
-    if alertGui then alertGui:Destroy() end
+local main = Instance.new("Frame", gui)
+main.Size = UDim2.new(0, 320, 0, 420)
+main.Position = UDim2.new(0.5, -160, 0.5, -210)
+main.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
+main.Active = true
+main.Draggable = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
+Instance.new("UIStroke", main).Color = Color3.fromRGB(0, 180, 255)
 
-    alertGui = Instance.new("ScreenGui", gui)
-    alertGui.Name = "EmergencyOverlay"
-    alertGui.ResetOnSpawn = false
-    alertGui.DisplayOrder = 999
+-- TITLE
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundTransparency = 1
+title.Text = "🧊 FREEZE TOOL"
+title.TextColor3 = Color3.fromRGB(0, 200, 255)
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
 
-    -- Flash overlay
-    local overlay = Instance.new("Frame", alertGui)
-    overlay.Size = UDim2.new(1, 0, 1, 0)
-    overlay.BackgroundColor3 = color
-    overlay.BackgroundTransparency = 0.7
-    overlay.BorderSizePixel = 0
-    overlay.ZIndex = 10
+-- STATUS
+local status = Instance.new("TextLabel", main)
+status.Position = UDim2.new(0, 8, 0, 42)
+status.Size = UDim2.new(1, -16, 0, 22)
+status.BackgroundColor3 = Color3.fromRGB(18, 18, 30)
+status.TextColor3 = Color3.fromRGB(0, 255, 150)
+status.Font = Enum.Font.Code
+status.TextScaled = true
+status.Text = "Siap"
+status.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", status).CornerRadius = UDim.new(0, 4)
 
-    -- Border tepi merah
-    local border = Instance.new("Frame", alertGui)
-    border.Size = UDim2.new(1, 0, 1, 0)
-    border.BackgroundTransparency = 1
-    border.BorderSizePixel = 0
-    local stroke = Instance.new("UIStroke", border)
-    stroke.Color = color
-    stroke.Thickness = 12
-
-    -- Teks peringatan
-    local label = Instance.new("TextLabel", alertGui)
-    label.Size = UDim2.new(1, 0, 0, 80)
-    label.Position = UDim2.new(0, 0, 0.5, -40)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.Font = Enum.Font.GothamBold
-    label.TextScaled = true
-    label.ZIndex = 11
-
-    -- Flash animasi
-    local flashing = true
-    task.spawn(function()
-        while flashing and alertGui and alertGui.Parent do
-            TweenService:Create(overlay, TweenInfo.new(0.4), { BackgroundTransparency = 0.85 }):Play()
-            task.wait(0.4)
-            TweenService:Create(overlay, TweenInfo.new(0.4), { BackgroundTransparency = 0.5 }):Play()
-            task.wait(0.4)
-        end
-    end)
-
-    return function()
-        flashing = false
-        if alertGui then alertGui:Destroy() alertGui = nil end
-    end
+local function setStatus(msg, color)
+    status.Text = "  " .. msg
+    status.TextColor3 = color or Color3.fromRGB(0, 255, 150)
 end
 
-local stopOverlay = nil
-
 -- ============================================================
--- TAB 1: ALARM & SIRINE
+-- PLAYER LIST
 -- ============================================================
-local TabAlarm = Window:CreateTab("🚨 Alarm & Sirine", 4483362458)
+local listLabel = Instance.new("TextLabel", main)
+listLabel.Position = UDim2.new(0, 8, 0, 68)
+listLabel.Size = UDim2.new(1, -16, 0, 20)
+listLabel.BackgroundTransparency = 1
+listLabel.Text = "Pilih Target:"
+listLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+listLabel.Font = Enum.Font.Gotham
+listLabel.TextScaled = true
+listLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-TabAlarm:CreateSection("Alarm Darurat")
+local scroll = Instance.new("ScrollingFrame", main)
+scroll.Position = UDim2.new(0, 8, 0, 90)
+scroll.Size = UDim2.new(1, -16, 0, 140)
+scroll.BackgroundColor3 = Color3.fromRGB(16, 16, 26)
+scroll.BorderSizePixel = 0
+scroll.ScrollBarThickness = 4
+scroll.ScrollBarImageColor3 = Color3.fromRGB(0, 180, 255)
+Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
 
-TabAlarm:CreateToggle({
-    Name = "🚨 Aktifkan Alarm Darurat (Loop)",
-    CurrentValue = false,
-    Flag = "AlarmToggle",
-    Callback = function(state)
-        if state then
-            alarmActive = true
-            playSound(SOUND_IDS.alarm, 0.9, true)
-            stopOverlay = createAlertOverlay(Color3.fromRGB(255, 30, 30), "⚠️ DARURAT! ⚠️")
-            Rayfield:Notify({ Title = "🚨 ALARM AKTIF", Content = "Alarm darurat menyala!", Duration = 3 })
-        else
-            alarmActive = false
-            stopAllSounds()
-            if stopOverlay then stopOverlay() stopOverlay = nil end
-            Rayfield:Notify({ Title = "✅ Alarm Mati", Content = "Alarm dimatikan", Duration = 2 })
-        end
-    end,
-})
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0, 3)
 
-TabAlarm:CreateToggle({
-    Name = "🔵 Sirine Polisi (Loop)",
-    CurrentValue = false,
-    Flag = "SirenToggle",
-    Callback = function(state)
-        if state then
-            playSound(SOUND_IDS.siren, 0.8, true)
-            stopOverlay = createAlertOverlay(Color3.fromRGB(30, 100, 255), "🚔 SIRINE AKTIF 🚔")
-            Rayfield:Notify({ Title = "🔵 Sirine", Content = "Sirine polisi menyala!", Duration = 3 })
-        else
-            stopAllSounds()
-            if stopOverlay then stopOverlay() stopOverlay = nil end
-        end
-    end,
-})
+local selectedTarget = nil
+local playerRows = {}
 
-TabAlarm:CreateButton({
-    Name = "⏹ Stop Semua Suara & Visual",
-    Callback = function()
-        stopAllSounds()
-        if stopOverlay then stopOverlay() stopOverlay = nil end
-        Rayfield:Notify({ Title = "⏹ Stopped", Content = "Semua suara dan visual dimatikan", Duration = 2 })
-    end,
-})
+local function refreshList()
+    for _, r in pairs(playerRows) do r:Destroy() end
+    playerRows = {}
 
--- ============================================================
--- TAB 2: BOOM / LEDAKAN
--- ============================================================
-local TabBoom = Window:CreateTab("💥 Boom", 4483362458)
+    local all = Players:GetPlayers()
+    for _, p in ipairs(all) do
+        if p ~= player then
+            local btn = Instance.new("TextButton", scroll)
+            btn.Size = UDim2.new(1, -6, 0, 28)
+            btn.Font = Enum.Font.Gotham
+            btn.TextScaled = true
+            btn.TextXAlignment = Enum.TextXAlignment.Left
+            btn.BorderSizePixel = 0
 
-TabBoom:CreateSection("Efek Ledakan")
-
-TabBoom:CreateButton({
-    Name = "💥 Boom! (Sekali)",
-    Callback = function()
-        playSound(SOUND_IDS.boom, 1, false)
-        local stop = createAlertOverlay(Color3.fromRGB(255, 120, 0), "💥 BOOM! 💥")
-        task.delay(1.5, function()
-            stop()
-            stopAllSounds()
-        end)
-        Rayfield:Notify({ Title = "💥 BOOM", Content = "Suara ledakan diputar!", Duration = 2 })
-    end,
-})
-
-TabBoom:CreateButton({
-    Name = "💥💥 Multi Boom (5x)",
-    Callback = function()
-        task.spawn(function()
-            for i = 1, 5 do
-                playSound(SOUND_IDS.boom, 1, false)
-                local stop = createAlertOverlay(
-                    Color3.fromRGB(math.random(200,255), math.random(50,150), 0),
-                    "💥 BOOM " .. i .. "! 💥"
-                )
-                task.wait(0.3)
-                stop()
-                task.wait(0.5)
+            if selectedTarget == p then
+                btn.BackgroundColor3 = Color3.fromRGB(0, 50, 80)
+                btn.TextColor3 = Color3.fromRGB(0, 220, 255)
+                btn.Text = "  ► " .. p.Name
+            else
+                btn.BackgroundColor3 = Color3.fromRGB(22, 22, 35)
+                btn.TextColor3 = Color3.fromRGB(210, 210, 210)
+                btn.Text = "    " .. p.Name
             end
-            stopAllSounds()
-        end)
-        Rayfield:Notify({ Title = "💥 Multi Boom", Content = "5x ledakan!", Duration = 3 })
-    end,
-})
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
 
--- ============================================================
--- TAB 3: WARNING SYSTEM
--- ============================================================
-local TabWarn = Window:CreateTab("⚠️ Warning", 4483362458)
-
-TabWarn:CreateSection("Pesan Peringatan")
-
-local warnText = "⚠️ PERINGATAN SISTEM ⚠️"
-
-TabWarn:CreateInput({
-    Name = "Teks Peringatan",
-    PlaceholderText = "Masukkan teks peringatan...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(val)
-        if val ~= "" then warnText = val end
-    end,
-})
-
-TabWarn:CreateButton({
-    Name = "📢 Tampilkan Peringatan",
-    Callback = function()
-        playSound(SOUND_IDS.warning, 0.8, false)
-        local stop = createAlertOverlay(Color3.fromRGB(255, 200, 0), warnText)
-        task.delay(3, function()
-            stop()
-        end)
-        Rayfield:Notify({ Title = "📢 Warning", Content = "Peringatan ditampilkan!", Duration = 2 })
-    end,
-})
-
-TabWarn:CreateButton({
-    Name = "🔴 Warning Merah Darurat",
-    Callback = function()
-        playSound(SOUND_IDS.alarm, 0.9, false)
-        local stop = createAlertOverlay(Color3.fromRGB(255, 0, 0), "🔴 " .. warnText .. " 🔴")
-        task.delay(4, function()
-            stop()
-            stopAllSounds()
-        end)
-    end,
-})
-
-TabWarn:CreateButton({
-    Name = "🟡 Warning Kuning",
-    Callback = function()
-        playSound(SOUND_IDS.warning, 0.7, false)
-        local stop = createAlertOverlay(Color3.fromRGB(255, 180, 0), "🟡 " .. warnText .. " 🟡")
-        task.delay(3, function()
-            stop()
-            stopAllSounds()
-        end)
-    end,
-})
-
--- ============================================================
--- TAB 4: LIGHTING EFEK
--- ============================================================
-local TabLight = Window:CreateTab("💡 Lighting", 4483362458)
-
-TabLight:CreateSection("Efek Cahaya Darurat")
-
-local originalAmbient    = Lighting.Ambient
-local originalOutdoor    = Lighting.OutdoorAmbient
-local lightingActive     = false
-local lightingConnection = nil
-
-TabLight:CreateToggle({
-    Name = "🔴 Red Alert Lighting",
-    CurrentValue = false,
-    Flag = "RedLighting",
-    Callback = function(state)
-        if state then
-            lightingActive = true
-            lightingConnection = RunService.Heartbeat:Connect(function()
-                if not lightingActive then return end
-                local t = tick() * 3
-                local intensity = (math.sin(t) + 1) / 2
-                Lighting.Ambient = Color3.fromRGB(
-                    math.floor(150 * intensity), 0, 0
-                )
-                Lighting.OutdoorAmbient = Color3.fromRGB(
-                    math.floor(100 * intensity), 0, 0
-                )
+            btn.MouseButton1Click:Connect(function()
+                selectedTarget = p
+                setStatus("Target: " .. p.Name, Color3.fromRGB(0, 220, 255))
+                refreshList()
             end)
-        else
-            lightingActive = false
-            if lightingConnection then
-                lightingConnection:Disconnect()
-                lightingConnection = nil
-            end
-            Lighting.Ambient = originalAmbient
-            Lighting.OutdoorAmbient = originalOutdoor
+
+            table.insert(playerRows, btn)
         end
-    end,
-})
+    end
+    scroll.CanvasSize = UDim2.new(0, 0, 0, #playerRows * 31)
+end
 
-TabLight:CreateButton({
-    Name = "🔁 Reset Lighting ke Normal",
-    Callback = function()
-        lightingActive = false
-        if lightingConnection then lightingConnection:Disconnect() lightingConnection = nil end
-        Lighting.Ambient = originalAmbient
-        Lighting.OutdoorAmbient = originalOutdoor
-        Rayfield:Notify({ Title = "✅ Reset", Content = "Lighting dikembalikan normal", Duration = 2 })
-    end,
-})
+refreshList()
+Players.PlayerAdded:Connect(function() task.wait(0.3) refreshList() end)
+Players.PlayerRemoving:Connect(function() task.wait(0.3) refreshList() selectedTarget = nil end)
 
 -- ============================================================
--- WELCOME
+-- TOMBOL AKSI
 -- ============================================================
-Rayfield:Notify({
-    Title = "🚨 Emergency System Aktif",
-    Content = "Selamat datang, " .. player.Name,
-    Duration = 4,
-})
+local function makeBtn(text, y, r, g, b, w)
+    local btn = Instance.new("TextButton", main)
+    btn.Size = w or UDim2.new(1, -16, 0, 34)
+    btn.Position = UDim2.new(0, 8, 0, y)
+    btn.Text = text
+    btn.BackgroundColor3 = Color3.fromRGB(r, g, b)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextScaled = true
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+-- Freeze / Unfreeze target (2 tombol sejajar)
+local freezeBtn   = makeBtn("🧊 Freeze Target",   240, 20, 80, 160, UDim2.new(0.47, 0, 0, 34))
+local unfreezeBtn = makeBtn("🔥 Unfreeze Target", 240, 160, 60, 20, UDim2.new(0.47, 0, 0, 34))
+unfreezeBtn.Position = UDim2.new(0.52, 0, 0, 240)
+
+-- Freeze All / Unfreeze All (2 tombol sejajar)
+local freezeAllBtn   = makeBtn("❄️ Freeze ALL",   284, 10, 60, 120, UDim2.new(0.47, 0, 0, 34))
+local unfreezeAllBtn = makeBtn("🔥 Unfreeze ALL", 284, 140, 40, 20, UDim2.new(0.47, 0, 0, 34))
+unfreezeAllBtn.Position = UDim2.new(0.52, 0, 0, 284)
+
+-- Lihat frozen list & Refresh
+local frozenListBtn = makeBtn("📋 Siapa yang Frozen?", 328, 40, 40, 80)
+local refreshBtn    = makeBtn("🔄 Refresh Daftar",     370, 30, 30, 30)
+
+-- ============================================================
+-- BUTTON LOGIC
+-- ============================================================
+
+freezeBtn.MouseButton1Click:Connect(function()
+    if not selectedTarget then
+        setStatus("⚠ Pilih target dulu!", Color3.fromRGB(255, 80, 80))
+        return
+    end
+    FreezePlayer:FireServer(selectedTarget.Name)
+    setStatus("🧊 " .. selectedTarget.Name .. " di-freeze!", Color3.fromRGB(0, 200, 255))
+end)
+
+unfreezeBtn.MouseButton1Click:Connect(function()
+    if not selectedTarget then
+        setStatus("⚠ Pilih target dulu!", Color3.fromRGB(255, 80, 80))
+        return
+    end
+    UnfreezePlayer:FireServer(selectedTarget.Name)
+    setStatus("🔥 " .. selectedTarget.Name .. " di-unfreeze!", Color3.fromRGB(0, 255, 150))
+end)
+
+freezeAllBtn.MouseButton1Click:Connect(function()
+    FreezeAll:FireServer()
+    setStatus("❄️ Semua player di-freeze!", Color3.fromRGB(0, 200, 255))
+end)
+
+unfreezeAllBtn.MouseButton1Click:Connect(function()
+    UnfreezeAll:FireServer()
+    setStatus("🔥 Semua player di-unfreeze!", Color3.fromRGB(0, 255, 150))
+end)
+
+frozenListBtn.MouseButton1Click:Connect(function()
+    if not GetFrozenList then
+        setStatus("⚠ GetFrozenList tidak ada!", Color3.fromRGB(255,80,80))
+        return
+    end
+    local list = GetFrozenList:InvokeServer()
+    if #list == 0 then
+        setStatus("Tidak ada yang frozen", Color3.fromRGB(180,180,180))
+    else
+        setStatus("Frozen: " .. table.concat(list, ", "), Color3.fromRGB(0, 200, 255))
+    end
+end)
+
+refreshBtn.MouseButton1Click:Connect(function()
+    selectedTarget = nil
+    refreshList()
+    setStatus("Daftar diperbarui", Color3.fromRGB(0, 255, 150))
+end)
