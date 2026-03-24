@@ -1,96 +1,46 @@
 --// SERVICES
 local Players = game:GetService("Players")
-local DataStoreService = game:GetService("DataStoreService")
 
-local VIPDataStore = DataStoreService:GetDataStore("VIPStatus")
+--// SETTINGS
+local CHECK_INTERVAL = 5       -- cek tiap 5 detik
+local BASE_ADD = 20            -- uang tetap kalau kecil
+local BONUS_PERCENT = 0.10     -- 10% dari uang kalau besar
+local MAX_MONEY = 100000       -- optional batas maksimum
 
---// CONFIG
-local VIP_DEFAULT = false -- default player tidak VIP
-local VIP_BENEFIT = {
-    WalkSpeed = 50,   -- contoh benefit
-    JumpPower = 100,
-    ExtraCoins = 500
-}
-
---// FUNCTIONS
-local function giveVIP(player)
-    player:SetAttribute("VIP", true)
-    -- bisa langsung beri benefit
-    local char = player.Character
-    if char then
-        local humanoid = char:FindFirstChild("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = VIP_BENEFIT.WalkSpeed
-            humanoid.JumpPower = VIP_BENEFIT.JumpPower
-        end
-    end
-    -- simpan ke DataStore
-    pcall(function()
-        VIPDataStore:SetAsync(player.UserId, true)
-    end)
-end
-
-local function removeVIP(player)
-    player:SetAttribute("VIP", false)
-    local char = player.Character
-    if char then
-        local humanoid = char:FindFirstChild("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = 16 -- default
-            humanoid.JumpPower = 50 -- default
-        end
-    end
-    -- hapus dari DataStore
-    pcall(function()
-        VIPDataStore:SetAsync(player.UserId, false)
-    end)
-end
-
-local function checkVIP(player)
-    -- cek DataStore
-    local success, value = pcall(function()
-        return VIPDataStore:GetAsync(player.UserId)
-    end)
-    if success and value then
-        giveVIP(player)
-    else
-        player:SetAttribute("VIP", VIP_DEFAULT)
-    end
-end
-
---// PLAYER HANDLER
+-- Player join
 Players.PlayerAdded:Connect(function(player)
-    -- cek VIP saat join
-    checkVIP(player)
+	
+	-- Leaderstats (mata uang)
+	local leaderstats = Instance.new("Folder")
+	leaderstats.Name = "leaderstats"
+	leaderstats.Parent = player
+	
+	local money = Instance.new("IntValue")
+	money.Name = "Money"
+	money.Value = 100 -- uang awal
+	money.Parent = leaderstats
 
-    -- kalau karakter spawn lagi
-    player.CharacterAdded:Connect(function(char)
-        if player:GetAttribute("VIP") then
-            local humanoid = char:WaitForChild("Humanoid")
-            humanoid.WalkSpeed = VIP_BENEFIT.WalkSpeed
-            humanoid.JumpPower = VIP_BENEFIT.JumpPower
-        end
-    end)
+	-- Auto detect & tambah uang
+	task.spawn(function()
+		while player.Parent do
+			task.wait(CHECK_INTERVAL)
+
+			local currentMoney = money.Value
+			local addAmount = 0
+
+			-- Logic auto-add
+			if currentMoney < 500 then
+				addAmount = BASE_ADD
+			else
+				addAmount = math.floor(currentMoney * BONUS_PERCENT)
+			end
+
+			-- Jangan melebihi MAX_MONEY
+			if currentMoney + addAmount > MAX_MONEY then
+				addAmount = MAX_MONEY - currentMoney
+			end
+
+			money.Value += addAmount
+		end
+	end)
 end)
-
---// COMMAND EXAMPLE (Developer only)
-local function onCommand(player, cmd)
-    if player.UserId == game.CreatorId then
-        local split = string.split(cmd, " ")
-        if split[1] == "vip" then
-            local targetName = split[2]
-            local action = split[3] -- add/remove
-            local target = Players:FindFirstChild(targetName)
-            if target then
-                if action == "add" then
-                    giveVIP(target)
-                elseif action == "remove" then
-                    removeVIP(target)
-                end
-            end
-        end
-    end
-end
-
--- Contoh pemakaian: Developer ketik chat "/vip PlayerName add" atau "/vip PlayerName remove"
-game.Players.PlayerChatted:Connect(onCommand)
