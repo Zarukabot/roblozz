@@ -2,233 +2,114 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local UserInputService = game:GetService("UserInputService")
 
---// GUI SETUP
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RemoteToolkitNeon"
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-ScreenGui.ResetOnSpawn = false
+local player = Players.LocalPlayer
 
--- Main frame
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 500, 0, 600)
-MainFrame.Position = UDim2.new(0.5, -250, 0.5, -300)
-MainFrame.BackgroundColor3 = Color3.fromRGB(10,10,10)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-local UICorner = Instance.new("UICorner", MainFrame)
-UICorner.CornerRadius = UDim.new(0,12)
+--// GUI
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "RemoteToolkitMini"
+gui.ResetOnSpawn = false
 
--- Title
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1,0,0,50)
-Title.BackgroundTransparency = 1
-Title.Text = "🌐 Remote Toolkit NEON"
-Title.TextColor3 = Color3.fromRGB(0,255,255)
-Title.TextScaled = true
-Title.Font = Enum.Font.GothamBold
+local main = Instance.new("Frame", gui)
+main.Size = UDim2.new(0, 320, 0, 420) -- ✅ kecil, mobile friendly
+main.Position = UDim2.new(0.5, -160, 0.5, -210)
+main.BackgroundColor3 = Color3.fromRGB(15,15,15)
+main.Active = true
+main.Draggable = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,10)
 
--- Search bar
-local SearchBox = Instance.new("TextBox", MainFrame)
-SearchBox.Size = UDim2.new(1,-20,0,35)
-SearchBox.Position = UDim2.new(0,10,0,55)
-SearchBox.PlaceholderText = "Search Remote..."
-SearchBox.BackgroundColor3 = Color3.fromRGB(20,20,20)
-SearchBox.TextColor3 = Color3.fromRGB(0,255,255)
-SearchBox.ClearTextOnFocus = false
-SearchBox.Font = Enum.Font.Gotham
-SearchBox.TextScaled = true
-local SearchUICorner = Instance.new("UICorner", SearchBox)
-SearchUICorner.CornerRadius = UDim.new(0,6)
+-- TITLE
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1,0,0,40)
+title.BackgroundTransparency = 1
+title.Text = "⚡ Remote Mini"
+title.TextColor3 = Color3.fromRGB(0,255,255)
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
 
--- Scroll frame for remotes
-local ScrollFrame = Instance.new("ScrollingFrame", MainFrame)
-ScrollFrame.Position = UDim2.new(0,10,0,95)
-ScrollFrame.Size = UDim2.new(1,-20,0,300)
-ScrollFrame.CanvasSize = UDim2.new(0,0,0,0)
-ScrollFrame.ScrollBarThickness = 6
-ScrollFrame.BackgroundTransparency = 1
-local UIListLayout = Instance.new("UIListLayout", ScrollFrame)
-UIListLayout.Padding = UDim.new(0,5)
+-- FPS LABEL
+local fpsLabel = Instance.new("TextLabel", main)
+fpsLabel.Position = UDim2.new(0,10,0,45)
+fpsLabel.Size = UDim2.new(1,-20,0,25)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.TextColor3 = Color3.fromRGB(0,255,150)
+fpsLabel.Font = Enum.Font.Gotham
+fpsLabel.TextScaled = true
 
--- Parameter input
-local ParamBox = Instance.new("TextBox", MainFrame)
-ParamBox.Size = UDim2.new(1,-20,0,35)
-ParamBox.Position = UDim2.new(0,10,0,405)
-ParamBox.PlaceholderText = 'Parameters (comma separated, e.g. "Hello,100,true")'
-ParamBox.BackgroundColor3 = Color3.fromRGB(20,20,20)
-ParamBox.TextColor3 = Color3.fromRGB(0,255,255)
-ParamBox.ClearTextOnFocus = false
-ParamBox.Font = Enum.Font.Gotham
-ParamBox.TextScaled = true
-local ParamCorner = Instance.new("UICorner", ParamBox)
-ParamCorner.CornerRadius = UDim.new(0,6)
+-- REMOTE LIST
+local scroll = Instance.new("ScrollingFrame", main)
+scroll.Position = UDim2.new(0,10,0,75)
+scroll.Size = UDim2.new(1,-20,0,260)
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+scroll.ScrollBarThickness = 4
+scroll.BackgroundTransparency = 1
 
--- Log frame
-local LogFrame = Instance.new("ScrollingFrame", MainFrame)
-LogFrame.Position = UDim2.new(0,10,0,450)
-LogFrame.Size = UDim2.new(1,-20,0,120)
-LogFrame.BackgroundColor3 = Color3.fromRGB(15,15,15)
-LogFrame.CanvasSize = UDim2.new(0,0,0,0)
-local LogList = Instance.new("UIListLayout", LogFrame)
-LogList.Padding = UDim.new(0,2)
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0,4)
 
--- Refresh & Collapse Buttons
-local RefreshButton = Instance.new("TextButton", MainFrame)
-RefreshButton.Size = UDim2.new(0.48,-15,0,35)
-RefreshButton.Position = UDim2.new(0,10,1,-45)
-RefreshButton.Text = "🔄 Refresh"
-RefreshButton.BackgroundColor3 = Color3.fromRGB(0,50,50)
-RefreshButton.TextColor3 = Color3.fromRGB(0,255,255)
-RefreshButton.Font = Enum.Font.Gotham
-RefreshButton.TextScaled = true
-local RefreshCorner = Instance.new("UICorner", RefreshButton)
-RefreshCorner.CornerRadius = UDim.new(0,6)
-
-local CollapseButton = Instance.new("TextButton", MainFrame)
-CollapseButton.Size = UDim2.new(0.48,-15,0,35)
-CollapseButton.Position = UDim2.new(0.52,5,1,-45)
-CollapseButton.Text = "🗕 Collapse"
-CollapseButton.BackgroundColor3 = Color3.fromRGB(0,50,50)
-CollapseButton.TextColor3 = Color3.fromRGB(0,255,255)
-CollapseButton.Font = Enum.Font.Gotham
-CollapseButton.TextScaled = true
-local CollapseCorner = Instance.new("UICorner", CollapseButton)
-CollapseCorner.CornerRadius = UDim.new(0,6)
+-- COLLAPSE BUTTON
+local collapse = Instance.new("TextButton", main)
+collapse.Size = UDim2.new(1,-20,0,30)
+collapse.Position = UDim2.new(0,10,1,-40)
+collapse.Text = "🗕 Collapse"
+collapse.BackgroundColor3 = Color3.fromRGB(0,60,60)
+collapse.TextColor3 = Color3.fromRGB(0,255,255)
+collapse.Font = Enum.Font.Gotham
+collapse.TextScaled = true
+Instance.new("UICorner", collapse).CornerRadius = UDim.new(0,6)
 
 local collapsed = false
-CollapseButton.MouseButton1Click:Connect(function()
-	collapsed = not collapsed
-	if collapsed then
-		MainFrame.Size = UDim2.new(0,500,0,100)
-		CollapseButton.Text = "🗖 Expand"
-	else
-		MainFrame.Size = UDim2.new(0,500,0,600)
-		CollapseButton.Text = "🗕 Collapse"
-	end
+collapse.MouseButton1Click:Connect(function()
+    collapsed = not collapsed
+    if collapsed then
+        main.Size = UDim2.new(0,320,0,80)
+        collapse.Text = "🗖 Expand"
+    else
+        main.Size = UDim2.new(0,320,0,420)
+        collapse.Text = "🗕 Collapse"
+    end
 end)
 
---// UTILS
-local function logMessage(msg,typeStr)
-	local textLabel = Instance.new("TextLabel", LogFrame)
-	textLabel.Size = UDim2.new(1,0,0,25)
-	textLabel.BackgroundTransparency = 1
-	textLabel.TextScaled = true
-	textLabel.Font = Enum.Font.Gotham
-	if typeStr=="INFO" then
-		textLabel.TextColor3 = Color3.fromRGB(0,255,255)
-	elseif typeStr=="RETURN" then
-		textLabel.TextColor3 = Color3.fromRGB(0,255,100)
-	elseif typeStr=="EVENT" then
-		textLabel.TextColor3 = Color3.fromRGB(0,150,255)
-	else
-		textLabel.TextColor3 = Color3.fromRGB(255,255,255)
-	end
-	textLabel.Text = "["..typeStr.."] "..msg
-	LogFrame.CanvasSize = UDim2.new(0,0,0,LogList.AbsoluteContentSize.Y)
-end
-
-local function parseParams(paramStr)
-	local params = {}
-	for param in paramStr:gmatch("[^,]+") do
-		param = param:gsub("^%s*(.-)%s*$","%1") -- trim
-		if param == "true" then
-			table.insert(params,true)
-		elseif param == "false" then
-			table.insert(params,false)
-		elseif tonumber(param) then
-			table.insert(params,tonumber(param))
-		else
-			table.insert(params,param)
-		end
-	end
-	return unpack(params)
-end
-
---// LOAD REMOTES
-local remoteButtons = {}
+-- LOAD REMOTES (No Spam)
 local function loadRemotes()
-	-- Clear old buttons
-	for _,v in pairs(ScrollFrame:GetChildren()) do
-		if v:IsA("TextButton") then v:Destroy() end
-	end
-	remoteButtons = {}
-	local ySize = 0
-	local searchText = SearchBox.Text:lower()
-	for _, remote in pairs(ReplicatedStorage:GetDescendants()) do
-		if (remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction")) and (remote.Name:lower():find(searchText) or searchText=="") then
-			local btn = Instance.new("TextButton")
-			btn.Size = UDim2.new(1,0,0,40)
-			btn.Text = remote.Name.." ["..remote.ClassName.."]"
-			btn.BackgroundColor3 = Color3.fromRGB(0,40,40)
-			btn.TextColor3 = Color3.fromRGB(0,255,255)
-			btn.Font = Enum.Font.Gotham
-			btn.TextScaled = true
-			btn.Parent = ScrollFrame
-			local corner = Instance.new("UICorner",btn)
-			corner.CornerRadius = UDim.new(0,6)
-			
-			-- Hover glow
-			btn.MouseEnter:Connect(function()
-				btn.BackgroundColor3 = Color3.fromRGB(0,100,100)
-			end)
-			btn.MouseLeave:Connect(function()
-				btn.BackgroundColor3 = Color3.fromRGB(0,40,40)
-			end)
-			
-			-- Left click → Fire/Invoke
-			btn.MouseButton1Click:Connect(function()
-				local ok,err = pcall(function()
-					local params = parseParams(ParamBox.Text)
-					if remote:IsA("RemoteEvent") then
-						remote:FireServer(params)
-						logMessage("Fired RemoteEvent: "..remote.Name,"INFO")
-					else
-						local result = remote:InvokeServer(params)
-						logMessage("RemoteFunction "..remote.Name.." returned: "..tostring(result),"RETURN")
-					end
-				end)
-				if not ok then
-					logMessage("Error firing remote: "..err,"INFO")
-				end
-			end)
-			
-			-- Right click → Copy path
-			btn.MouseButton2Click:Connect(function()
-				setclipboard(remote:GetFullName())
-				logMessage("Copied path: "..remote:GetFullName(),"INFO")
-			end)
-			
-			remoteButtons[remote] = btn
-			ySize = ySize + 45
-		end
-	end
-	ScrollFrame.CanvasSize = UDim2.new(0,0,0,ySize)
+    for _,v in pairs(scroll:GetChildren()) do
+        if v:IsA("TextButton") then v:Destroy() end
+    end
+
+    local sizeY = 0
+    for _, remote in pairs(ReplicatedStorage:GetDescendants()) do
+        if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+            local btn = Instance.new("TextButton", scroll)
+            btn.Size = UDim2.new(1,0,0,32)
+            btn.Text = remote.Name
+            btn.BackgroundColor3 = Color3.fromRGB(0,40,40)
+            btn.TextColor3 = Color3.fromRGB(0,255,255)
+            btn.Font = Enum.Font.Gotham
+            btn.TextScaled = true
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0,6)
+
+            sizeY += 36
+
+            btn.MouseButton1Click:Connect(function()
+                print("Selected Remote:", remote:GetFullName())
+            end)
+        end
+    end
+
+    scroll.CanvasSize = UDim2.new(0,0,0,sizeY)
 end
 
--- Refresh
-RefreshButton.MouseButton1Click:Connect(loadRemotes)
-SearchBox:GetPropertyChangedSignal("Text"):Connect(loadRemotes)
-
--- Auto listen RemoteEvent in ReplicatedStorage
-for _, remote in pairs(ReplicatedStorage:GetDescendants()) do
-	if remote:IsA("RemoteEvent") then
-		remote.OnClientEvent:Connect(function(...)
-			logMessage(remote.Name.." sent: "..table.concat({...},","),"EVENT")
-		end)
-	end
-end
-
--- Auto Refresh every 5 sec
-spawn(function()
-	while true do
-		loadRemotes()
-		wait(5)
-	end
-end)
-
--- Initial load
 loadRemotes()
+
+-- FPS MONITOR (Performance Mode)
+local last = tick()
+local frames = 0
+
+RunService.RenderStepped:Connect(function()
+    frames += 1
+    if tick() - last >= 1 then
+        fpsLabel.Text = "FPS: "..frames
+        frames = 0
+        last = tick()
+    end
+end)
