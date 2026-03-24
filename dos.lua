@@ -310,3 +310,132 @@ RunService.RenderStepped:Connect(function()
         last = tick()
     end
 end)
+
+-- ============================================================
+-- PLAYER MONITOR PANEL
+-- ============================================================
+local playerGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+playerGui.Name = "PlayerMonitor"
+playerGui.ResetOnSpawn = false
+
+local pFrame = Instance.new("Frame", playerGui)
+pFrame.Size = UDim2.new(0, 240, 0, 320)
+pFrame.Position = UDim2.new(1, -250, 0.5, -160)
+pFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+pFrame.Active = true
+pFrame.Draggable = true
+Instance.new("UICorner", pFrame).CornerRadius = UDim.new(0, 12)
+local pBorder = Instance.new("UIStroke", pFrame)
+pBorder.Color = Color3.fromRGB(0, 200, 255)
+pBorder.Thickness = 1.5
+
+local pTitle = Instance.new("TextLabel", pFrame)
+pTitle.Size = UDim2.new(1, 0, 0, 36)
+pTitle.BackgroundTransparency = 1
+pTitle.Text = "👥 PLAYERS IN SERVER"
+pTitle.TextColor3 = Color3.fromRGB(0, 200, 255)
+pTitle.Font = Enum.Font.GothamBold
+pTitle.TextScaled = true
+
+local pCount = Instance.new("TextLabel", pFrame)
+pCount.Size = UDim2.new(1, -10, 0, 22)
+pCount.Position = UDim2.new(0, 5, 0, 36)
+pCount.BackgroundTransparency = 1
+pCount.TextColor3 = Color3.fromRGB(150, 150, 150)
+pCount.Font = Enum.Font.Gotham
+pCount.TextScaled = true
+pCount.Text = "Total: 0"
+pCount.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Scrolling list
+local scrollFrame = Instance.new("ScrollingFrame", pFrame)
+scrollFrame.Position = UDim2.new(0, 5, 0, 62)
+scrollFrame.Size = UDim2.new(1, -10, 1, -70)
+scrollFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 16)
+scrollFrame.BorderSizePixel = 0
+scrollFrame.ScrollBarThickness = 4
+scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 180, 255)
+Instance.new("UICorner", scrollFrame).CornerRadius = UDim.new(0, 6)
+
+local listLayout = Instance.new("UIListLayout", scrollFrame)
+listLayout.SortOrder = Enum.SortOrder.Name
+listLayout.Padding = UDim.new(0, 3)
+
+-- Fungsi update daftar player
+local playerRows = {}
+
+local function refreshPlayers()
+    -- bersihkan row lama
+    for _, row in pairs(playerRows) do
+        row:Destroy()
+    end
+    playerRows = {}
+
+    local allPlayers = Players:GetPlayers()
+    pCount.Text = "Total: " .. #allPlayers .. " / " .. Players.MaxPlayers
+
+    for _, p in ipairs(allPlayers) do
+        local row = Instance.new("Frame", scrollFrame)
+        row.Size = UDim2.new(1, -6, 0, 30)
+        row.BackgroundColor3 = (p == player)
+            and Color3.fromRGB(0, 60, 80)
+            or  Color3.fromRGB(22, 22, 22)
+        row.BorderSizePixel = 0
+        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 5)
+
+        local nameLabel = Instance.new("TextLabel", row)
+        nameLabel.Size = UDim2.new(0.75, 0, 1, 0)
+        nameLabel.Position = UDim2.new(0, 8, 0, 0)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = (p == player and "★ " or "") .. p.Name
+        nameLabel.TextColor3 = (p == player)
+            and Color3.fromRGB(0, 220, 255)
+            or  Color3.fromRGB(220, 220, 220)
+        nameLabel.Font = Enum.Font.Gotham
+        nameLabel.TextScaled = true
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+        -- Ping indicator
+        local pingLabel = Instance.new("TextLabel", row)
+        pingLabel.Size = UDim2.new(0.25, -4, 1, 0)
+        pingLabel.Position = UDim2.new(0.75, 0, 0, 0)
+        pingLabel.BackgroundTransparency = 1
+        pingLabel.Font = Enum.Font.Code
+        pingLabel.TextScaled = true
+        pingLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+        -- Hanya bisa baca ping player lokal
+        if p == player then
+            local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+            pingLabel.Text = ping .. "ms"
+            pingLabel.TextColor3 = ping < 80
+                and Color3.fromRGB(0, 255, 100)
+                or  ping < 150
+                    and Color3.fromRGB(255, 200, 0)
+                    or  Color3.fromRGB(255, 60, 60)
+        else
+            pingLabel.Text = ""
+        end
+
+        table.insert(playerRows, row)
+    end
+
+    -- update ScrollingFrame canvas height
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #allPlayers * 33)
+end
+
+-- Update tiap 2 detik
+refreshPlayers()
+task.spawn(function()
+    while true do
+        task.wait(2)
+        refreshPlayers()
+    end
+end)
+
+-- Event ketika player join/leave
+Players.PlayerAdded:Connect(refreshPlayers)
+Players.PlayerRemoving:Connect(function()
+    task.wait(0.1)
+    refreshPlayers()
+end)
