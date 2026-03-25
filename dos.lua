@@ -1,127 +1,72 @@
 --// SERVICES
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
-local player = Players.LocalPlayer
+--// SETTINGS
+local TIME_MULTIPLIER = 10 
+-- 1 = normal
+-- 5 = 5x lebih cepat
+-- 10 = 10x lebih cepat
+-- 50 = super cepat
 
---// REMOTE (harus ada server script juga)
-local SubmitWord = ReplicatedStorage:WaitForChild("SubmitWord")
+local startTime = tick()
 
---// GUI
-local gui = Instance.new("ScreenGui")
-gui.Name = "ModernSambungKata"
-gui.Parent = player:WaitForChild("PlayerGui")
-gui.ResetOnSpawn = false
+--==================================================
+-- GUI
+--==================================================
 
--- MAIN FRAME
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 450, 0, 300)
-frame.Position = UDim2.new(0.5, -225, 0.5, -150)
-frame.BackgroundColor3 = Color3.fromRGB(20,20,25)
-frame.BorderSizePixel = 0
-frame.BackgroundTransparency = 0.1
-frame.Name = "Main"
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "FakePlaytimeDashboard"
 
-local corner = Instance.new("UICorner", frame)
-corner.CornerRadius = UDim.new(0,20)
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 320, 0, 160)
+Frame.Position = UDim2.new(0.05, 0, 0.3, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+Frame.Active = true
+Frame.Draggable = true
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,15)
 
--- TITLE
-local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1,0,0,50)
-title.BackgroundTransparency = 1
-title.Text = "SAMBUNG KATA"
-title.TextColor3 = Color3.fromRGB(0,255,200)
-title.Font = Enum.Font.GothamBold
-title.TextScaled = true
+local Title = Instance.new("TextLabel", Frame)
+Title.Size = UDim2.new(1,0,0,40)
+Title.BackgroundTransparency = 1
+Title.Text = "📊 PLAYTIME BOOSTER"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.TextScaled = true
 
--- LETTER DISPLAY
-local letterLabel = Instance.new("TextLabel", frame)
-letterLabel.Size = UDim2.new(1,0,0,80)
-letterLabel.Position = UDim2.new(0,0,0,60)
-letterLabel.BackgroundTransparency = 1
-letterLabel.Text = "A"
-letterLabel.TextColor3 = Color3.fromRGB(255,255,255)
-letterLabel.Font = Enum.Font.GothamBlack
-letterLabel.TextScaled = true
+local TimeLabel = Instance.new("TextLabel", Frame)
+TimeLabel.Position = UDim2.new(0,0,0,50)
+TimeLabel.Size = UDim2.new(1,0,0,50)
+TimeLabel.BackgroundTransparency = 1
+TimeLabel.TextColor3 = Color3.fromRGB(0,255,170)
+TimeLabel.TextScaled = true
+TimeLabel.Text = "00:00:00"
 
--- TEXTBOX
-local textBox = Instance.new("TextBox", frame)
-textBox.Size = UDim2.new(0.8,0,0,45)
-textBox.Position = UDim2.new(0.1,0,0,160)
-textBox.BackgroundColor3 = Color3.fromRGB(35,35,40)
-textBox.PlaceholderText = "Ketik kata..."
-textBox.TextColor3 = Color3.new(1,1,1)
-textBox.Font = Enum.Font.Gotham
-textBox.TextScaled = true
-textBox.ClearTextOnFocus = false
+local MultiplierLabel = Instance.new("TextLabel", Frame)
+MultiplierLabel.Position = UDim2.new(0,0,0,100)
+MultiplierLabel.Size = UDim2.new(1,0,0,25)
+MultiplierLabel.BackgroundTransparency = 1
+MultiplierLabel.TextColor3 = Color3.new(1,1,1)
+MultiplierLabel.TextScaled = true
+MultiplierLabel.Text = "Speed: "..TIME_MULTIPLIER.."x"
 
-local boxCorner = Instance.new("UICorner", textBox)
-boxCorner.CornerRadius = UDim.new(0,12)
+--==================================================
+-- FORMAT TIME
+--==================================================
 
--- STATUS
-local status = Instance.new("TextLabel", frame)
-status.Size = UDim2.new(1,0,0,40)
-status.Position = UDim2.new(0,0,1,-45)
-status.BackgroundTransparency = 1
-status.Text = ""
-status.TextColor3 = Color3.fromRGB(255,80,80)
-status.Font = Enum.Font.Gotham
-status.TextScaled = true
-
--- TIMER BAR
-local timerBarBG = Instance.new("Frame", frame)
-timerBarBG.Size = UDim2.new(0.8,0,0,8)
-timerBarBG.Position = UDim2.new(0.1,0,1,-60)
-timerBarBG.BackgroundColor3 = Color3.fromRGB(40,40,45)
-timerBarBG.BorderSizePixel = 0
-
-local timerBar = Instance.new("Frame", timerBarBG)
-timerBar.Size = UDim2.new(1,0,1,0)
-timerBar.BackgroundColor3 = Color3.fromRGB(0,255,200)
-timerBar.BorderSizePixel = 0
-
-local timerCorner = Instance.new("UICorner", timerBar)
-timerCorner.CornerRadius = UDim.new(1,0)
-
--- TIMER FUNCTION
-local function startTimer()
-	timerBar.Size = UDim2.new(1,0,1,0)
-	local tween = TweenService:Create(timerBar,
-		TweenInfo.new(10, Enum.EasingStyle.Linear),
-		{Size = UDim2.new(0,0,1,0)}
-	)
-	tween:Play()
+local function formatTime(seconds)
+	local hrs = math.floor(seconds / 3600)
+	local mins = math.floor((seconds % 3600) / 60)
+	local secs = math.floor(seconds % 60)
+	return string.format("%02d:%02d:%02d", hrs, mins, secs)
 end
 
-startTimer()
+--==================================================
+-- UPDATE LOOP (FAKE TIME)
+--==================================================
 
--- SUBMIT
-local function submit()
-	if textBox.Text ~= "" then
-		SubmitWord:FireServer(textBox.Text)
-	end
-end
-
-textBox.FocusLost:Connect(function(enter)
-	if enter then
-		submit()
-	end
+RunService.RenderStepped:Connect(function()
+	local realElapsed = tick() - startTime
+	local fakeElapsed = realElapsed * TIME_MULTIPLIER
+	TimeLabel.Text = formatTime(fakeElapsed)
 end)
 
--- RESPONSE FROM SERVER
-SubmitWord.OnClientEvent:Connect(function(success, data, score)
-	if success then
-		letterLabel.Text = data
-		status.TextColor3 = Color3.fromRGB(0,255,120)
-		status.Text = "BENAR! +Poin"
-		textBox.Text = ""
-		startTimer()
-	else
-		status.TextColor3 = Color3.fromRGB(255,80,80)
-		status.Text = data
-	end
-	
-	task.wait(2)
-	status.Text = ""
-end)
+print("🚀 Fake Playtime Loaded")
