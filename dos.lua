@@ -3,14 +3,16 @@ local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local RunService = game:GetService("RunService")
 
-local playtimeStore = DataStoreService:GetDataStore("PlaytimeSpeed_v1")
+local store = DataStoreService:GetDataStore("FastPlaytime_v1")
 
---// SPEED SETTINGS
-local TIME_SPEED = 5 
--- 1 = normal
--- 2 = 2x lebih cepat
--- 5 = 5x lebih cepat
--- 10 = super cepat
+--==================================================
+-- SPEED SETTING
+--==================================================
+local TIME_SPEED = 10  
+-- 1  = normal
+-- 2  = 2x lebih cepat
+-- 5  = 5x lebih cepat
+-- 10 = 10x lebih cepat
 
 --==================================================
 -- PLAYER JOIN
@@ -27,22 +29,22 @@ Players.PlayerAdded:Connect(function(player)
 	TimePlayed.Name = "TimePlayed"
 	TimePlayed.Parent = leaderstats
 
-	-- Load Data
+	-- Load data lama
 	local savedTime = 0
 	local success, data = pcall(function()
-		return playtimeStore:GetAsync(player.UserId)
+		return store:GetAsync(player.UserId)
 	end)
 
 	if success and data then
 		savedTime = data
 	end
-	
+
 	TimePlayed.Value = savedTime
 
-	-- Simpan waktu join
+	-- Catat waktu join
 	local joinTime = os.time()
 
-	-- Update realtime
+	-- Update otomatis (lebih cepat)
 	local connection
 	connection = RunService.Heartbeat:Connect(function()
 		if not player.Parent then
@@ -68,7 +70,7 @@ local function save(player)
 
 	if stat then
 		pcall(function()
-			playtimeStore:SetAsync(player.UserId, stat.Value)
+			store:SetAsync(player.UserId, stat.Value)
 		end)
 	end
 end
