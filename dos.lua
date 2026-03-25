@@ -1,72 +1,60 @@
 --// SERVICES
-local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+
+local playtimeStore = DataStoreService:GetDataStore("PlaytimeData")
 
 --// SETTINGS
-local TIME_MULTIPLIER = 10 
--- 1 = normal
--- 5 = 5x lebih cepat
--- 10 = 10x lebih cepat
--- 50 = super cepat
-
-local startTime = tick()
+local TIME_MULTIPLIER = 1 -- 1 = normal | 2 = 2x lebih cepat | 5 = 5x
 
 --==================================================
--- GUI
+-- PLAYER JOIN
 --==================================================
 
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "FakePlaytimeDashboard"
+Players.PlayerAdded:Connect(function(player)
 
-local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.new(0, 320, 0, 160)
-Frame.Position = UDim2.new(0.05, 0, 0.3, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
-Frame.Active = true
-Frame.Draggable = true
-Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,15)
+	-- Leaderstats
+	local leaderstats = Instance.new("Folder")
+	leaderstats.Name = "leaderstats"
+	leaderstats.Parent = player
 
-local Title = Instance.new("TextLabel", Frame)
-Title.Size = UDim2.new(1,0,0,40)
-Title.BackgroundTransparency = 1
-Title.Text = "📊 PLAYTIME BOOSTER"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.TextScaled = true
+	local TimePlayed = Instance.new("IntValue")
+	TimePlayed.Name = "TimePlayed"
+	TimePlayed.Parent = leaderstats
+	TimePlayed.Value = 0
 
-local TimeLabel = Instance.new("TextLabel", Frame)
-TimeLabel.Position = UDim2.new(0,0,0,50)
-TimeLabel.Size = UDim2.new(1,0,0,50)
-TimeLabel.BackgroundTransparency = 1
-TimeLabel.TextColor3 = Color3.fromRGB(0,255,170)
-TimeLabel.TextScaled = true
-TimeLabel.Text = "00:00:00"
+	-- Load Data
+	local success, data = pcall(function()
+		return playtimeStore:GetAsync(player.UserId)
+	end)
 
-local MultiplierLabel = Instance.new("TextLabel", Frame)
-MultiplierLabel.Position = UDim2.new(0,0,0,100)
-MultiplierLabel.Size = UDim2.new(1,0,0,25)
-MultiplierLabel.BackgroundTransparency = 1
-MultiplierLabel.TextColor3 = Color3.new(1,1,1)
-MultiplierLabel.TextScaled = true
-MultiplierLabel.Text = "Speed: "..TIME_MULTIPLIER.."x"
+	if success and data then
+		TimePlayed.Value = data
+	end
 
---==================================================
--- FORMAT TIME
---==================================================
+	-- Timer Loop
+	task.spawn(function()
+		while player.Parent do
+			task.wait(1)
+			TimePlayed.Value += 1 * TIME_MULTIPLIER
+		end
+	end)
 
-local function formatTime(seconds)
-	local hrs = math.floor(seconds / 3600)
-	local mins = math.floor((seconds % 3600) / 60)
-	local secs = math.floor(seconds % 60)
-	return string.format("%02d:%02d:%02d", hrs, mins, secs)
-end
-
---==================================================
--- UPDATE LOOP (FAKE TIME)
---==================================================
-
-RunService.RenderStepped:Connect(function()
-	local realElapsed = tick() - startTime
-	local fakeElapsed = realElapsed * TIME_MULTIPLIER
-	TimeLabel.Text = formatTime(fakeElapsed)
 end)
 
-print("🚀 Fake Playtime Loaded")
+--==================================================
+-- SAVE WHEN LEAVE
+--==================================================
+
+Players.PlayerRemoving:Connect(function(player)
+
+	local timeStat = player:FindFirstChild("leaderstats") and 
+	                 player.leaderstats:FindFirstChild("TimePlayed")
+
+	if timeStat then
+		pcall(function()
+			playtimeStore:SetAsync(player.UserId, timeStat.Value)
+		end)
+	end
+
+end)
